@@ -73,7 +73,10 @@ class _RientroMaterialeScreenState
           ],
         ),
         body: inAttesaAsync.when(
-          data: (prelieviInAttesa) {
+          data: (prelieviRaw) {
+            // Ordinamento discendente per vista spunta rientro (più recenti in alto)
+            final prelieviInAttesa = [...prelieviRaw]
+              ..sort((a, b) => b.dataPrelievo.compareTo(a.dataPrelievo));
             if (prelieviInAttesa.isEmpty) {
               return Center(
                 child: Padding(

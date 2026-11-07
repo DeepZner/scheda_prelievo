@@ -11,7 +11,40 @@ final prelieviListProvider = FutureProvider<List<Prelievo>>((ref) async {
 
 final prelieviInAttesaProvider = FutureProvider<List<Prelievo>>((ref) async {
   final repository = ref.watch(prelievoRepositoryProvider);
-  return repository.getPrelieviInAttesa();
+  final list = await repository.getPrelieviInAttesa();
+  // Ordinamento discendente per vista spunta rientro (più recenti in alto)
+  final sorted = [...list]..sort((a, b) => b.dataPrelievo.compareTo(a.dataPrelievo));
+  return sorted;
+});
+
+/// Provider per la vista Storico: prelievi raggruppati per stati con ordinamento ascendente (dal più vecchio al più recente)
+final storicoRaggruppatoProvider =
+    FutureProvider<Map<StatoPrelievo, List<Prelievo>>>((ref) async {
+  final repository = ref.watch(prelievoRepositoryProvider);
+  final tutti = await repository.getAllPrelievi();
+
+  // Definisce l'ordine logico degli stati
+  final Map<StatoPrelievo, List<Prelievo>> grouped = {
+    StatoPrelievo.inAttesa: [],
+    StatoPrelievo.mancante: [],
+    StatoPrelievo.rientrato: [],
+    StatoPrelievo.annullato: [],
+  };
+
+  for (final p in tutti) {
+    if (grouped.containsKey(p.stato)) {
+      grouped[p.stato]!.add(p);
+    } else {
+      grouped[p.stato] = [p];
+    }
+  }
+
+  // Per ciascun raggruppamento di stato: ORDINAMENTO ASCENDENTE per data (dal meno recente al più recente)
+  for (final list in grouped.values) {
+    list.sort((a, b) => a.dataPrelievo.compareTo(b.dataPrelievo));
+  }
+
+  return grouped;
 });
 
 final prelievoDetailProvider =
@@ -111,6 +144,7 @@ class PrelieviController extends StateNotifier<AsyncValue<void>> {
   void _invalidateLists() {
     _ref.invalidate(prelieviListProvider);
     _ref.invalidate(prelieviInAttesaProvider);
+    _ref.invalidate(storicoRaggruppatoProvider);
     _ref.invalidate(prelievoDetailProvider);
   }
 }

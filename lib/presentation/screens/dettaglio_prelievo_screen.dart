@@ -134,14 +134,15 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
           }
 
           final isInAttesa = prelievo.stato == StatoPrelievo.inAttesa;
-          final totPrelevatiMetri = prelievo.dettagli
-              .where((d) => d.isMetri)
-              .fold<int>(0, (sum, d) => sum + d.quantitaPrelevata);
+          final totPrelevatiMetri = prelievo.totaleMetri;
+          final matasseCount = prelievo.totaleMatasse;
           final totPrelevatiPz = prelievo.dettagli
               .where((d) => !d.isMetri)
               .fold<int>(0, (sum, d) => sum + d.quantitaPrelevata);
+          final totalePezziFisici = prelievo.totalePezzi;
           final riepilogoMateriali = [
-            if (totPrelevatiMetri > 0) '$totPrelevatiMetri m corde',
+            if (totPrelevatiMetri > 0)
+              '$totPrelevatiMetri m corde ($matasseCount ${matasseCount == 1 ? 'matassa' : 'matasse'})',
             if (totPrelevatiPz > 0) '$totPrelevatiPz pz',
           ].join(' • ');
 
@@ -395,7 +396,7 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Materiali (${prelievo.dettagli.length} articoli${riepilogoMateriali.isNotEmpty ? ' • $riepilogoMateriali' : ''})',
+                    'Materiali (${prelievo.dettagli.length} voci • $totalePezziFisici pezzi${riepilogoMateriali.isNotEmpty ? ' • $riepilogoMateriali' : ''})',
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),

@@ -48,6 +48,20 @@ class Prelievo {
   /// Indica se la procedura di spunta/rientro è in corso (bozza salvata o spunta avviata)
   bool get haSpuntaInCorso => !isModificabile && stato == StatoPrelievo.inAttesa;
 
+  /// Calcola il totale complessivo dei pezzi fisici prelevati:
+  /// ogni inserimento di corda in metri equivale a 1 singolo pezzo (matassa di corda),
+  /// mentre gli altri materiali contano per la quantità inserita.
+  int get totalePezzi =>
+      dettagli.fold<int>(0, (sum, d) => sum + d.numeroPezzi);
+
+  /// Numero di matasse / spezzoni di corda inseriti
+  int get totaleMatasse => dettagli.where((d) => d.isMetri).length;
+
+  /// Metri complessivi di corde/cordini/fettucce
+  int get totaleMetri => dettagli
+      .where((d) => d.isMetri)
+      .fold<int>(0, (sum, d) => sum + d.quantitaPrelevata);
+
   Prelievo copyWith({
     String? id,
     DateTime? dataPrelievo,

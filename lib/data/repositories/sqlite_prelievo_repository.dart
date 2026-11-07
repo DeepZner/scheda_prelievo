@@ -49,7 +49,10 @@ class SqlitePrelievoRepository implements IPrelievoRepository {
 
   @override
   Future<List<Prelievo>> getPrelieviInAttesa() async {
-    return getPrelieviByStato(StatoPrelievo.inAttesa);
+    final list = await getPrelieviByStato(StatoPrelievo.inAttesa);
+    // Ordinamento discendente per vista spunta rientro (dal più recente al più vecchio)
+    list.sort((a, b) => b.dataPrelievo.compareTo(a.dataPrelievo));
+    return list;
   }
 
   @override

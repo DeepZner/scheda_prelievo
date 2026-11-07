@@ -230,5 +230,133 @@ void main() {
       expect(detMoschettone.isMetri, isFalse);
       expect(detMoschettone.unitaMisura, 'pz');
     });
+
+    test('Sorting: Descending for spunta rientro vs Ascending grouped for storico', () {
+      final p1 = Prelievo(
+        id: 'p1',
+        dataPrelievo: DateTime(2026, 10, 1),
+        luogoGrotta: 'Grotta Vecchia',
+        responsabile: 'Alice',
+        stato: StatoPrelievo.inAttesa,
+      );
+      final p2 = Prelievo(
+        id: 'p2',
+        dataPrelievo: DateTime(2026, 11, 5),
+        luogoGrotta: 'Grotta Nuova',
+        responsabile: 'Bob',
+        stato: StatoPrelievo.inAttesa,
+      );
+      final p3 = Prelievo(
+        id: 'p3',
+        dataPrelievo: DateTime(2026, 10, 15),
+        luogoGrotta: 'Grotta Media',
+        responsabile: 'Carlo',
+        stato: StatoPrelievo.inAttesa,
+      );
+
+      final p4 = Prelievo(
+        id: 'p4',
+        dataPrelievo: DateTime(2026, 9, 20),
+        luogoGrotta: 'Pozzo Uno',
+        responsabile: 'Diana',
+        stato: StatoPrelievo.rientrato,
+      );
+      final p5 = Prelievo(
+        id: 'p5',
+        dataPrelievo: DateTime(2026, 11, 1),
+        luogoGrotta: 'Pozzo Due',
+        responsabile: 'Elena',
+        stato: StatoPrelievo.rientrato,
+      );
+
+      // 1. Spunta rientro: ORDINAMENTO DISCENDENTE (più recenti in alto: p2, p3, p1)
+      final spuntaList = [p1, p2, p3];
+      spuntaList.sort((a, b) => b.dataPrelievo.compareTo(a.dataPrelievo));
+      expect(spuntaList.map((p) => p.id).toList(), ['p2', 'p3', 'p1']);
+      expect(spuntaList.first.dataPrelievo.isAfter(spuntaList.last.dataPrelievo), isTrue);
+
+      // 2. Storico: ORDINAMENTO ASCENDENTE RAGGRUPPATO PER STATI
+      final tutti = [p2, p5, p1, p4, p3];
+      final Map<StatoPrelievo, List<Prelievo>> grouped = {
+        StatoPrelievo.inAttesa: [],
+        StatoPrelievo.mancante: [],
+        StatoPrelievo.rientrato: [],
+        StatoPrelievo.annullato: [],
+      };
+
+      for (final p in tutti) {
+        grouped[p.stato]?.add(p);
+      }
+
+      for (final list in grouped.values) {
+        list.sort((a, b) => a.dataPrelievo.compareTo(b.dataPrelievo));
+      }
+
+      // Gruppo In Attesa ordinato ascendente (dal più vecchio al più recente: p1, p3, p2)
+      final inAttesaIds = grouped[StatoPrelievo.inAttesa]!.map((p) => p.id).toList();
+      expect(inAttesaIds, ['p1', 'p3', 'p2']);
+
+      // Gruppo Rientrato ordinato ascendente (p4, p5)
+      final rientratoIds = grouped[StatoPrelievo.rientrato]!.map((p) => p.id).toList();
+      expect(rientratoIds, ['p4', 'p5']);
+    });
+
+    test('Piece count logic: rope in meters equals 1 physical piece (matassa di corda)', () {
+      const corda50m = DettaglioPrelievo(
+        idDettaglio: 'd1',
+        prelievoId: 'p1',
+        materialeId: 'C_001',
+        nomeMateriale: 'Corde',
+        categoriaMateriale: 'Corde',
+        quantitaPrelevata: 50, // 50 metri di corda
+      );
+      expect(corda50m.isMetri, isTrue);
+      expect(corda50m.numeroPezzi, 1); // 1 matassa
+
+      const corda30m = DettaglioPrelievo(
+        idDettaglio: 'd2',
+        prelievoId: 'p1',
+        materialeId: 'C_001',
+        nomeMateriale: 'Corde',
+        categoriaMateriale: 'Corde',
+        quantitaPrelevata: 30, // 30 metri di corda
+      );
+      expect(corda30m.numeroPezzi, 1); // 1 matassa
+
+      const moschettoni = DettaglioPrelievo(
+        idDettaglio: 'd3',
+        prelievoId: 'p1',
+        materialeId: 'A_001',
+        nomeMateriale: 'Moschettoni con ghiera',
+        categoriaMateriale: 'Armo',
+        quantitaPrelevata: 10, // 10 pezzi
+      );
+      expect(moschettoni.isMetri, isFalse);
+      expect(moschettoni.numeroPezzi, 10);
+
+      const sacchi = DettaglioPrelievo(
+        idDettaglio: 'd4',
+        prelievoId: 'p1',
+        materialeId: 'C_003',
+        nomeMateriale: 'Sacchi da armo',
+        categoriaMateriale: 'Corde',
+        quantitaPrelevata: 2, // 2 pezzi
+      );
+      expect(sacchi.isMetri, isFalse);
+      expect(sacchi.numeroPezzi, 2);
+
+      final prelievo = Prelievo(
+        id: 'p1',
+        dataPrelievo: DateTime.now(),
+        luogoGrotta: 'Pozzo della Neve',
+        responsabile: 'Speleo Master',
+        dettagli: [corda50m, corda30m, moschettoni, sacchi],
+      );
+
+      // Totale pezzi: 1 (matassa 50m) + 1 (matassa 30m) + 10 (moschettoni) + 2 (sacchi) = 14 pezzi (NON 92!)
+      expect(prelievo.totalePezzi, 14);
+      expect(prelievo.totaleMatasse, 2);
+      expect(prelievo.totaleMetri, 80);
+    });
   });
 }

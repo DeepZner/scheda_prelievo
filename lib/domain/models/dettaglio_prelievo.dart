@@ -58,6 +58,18 @@ class DettaglioPrelievo {
   /// Restituisce l'unità di misura ('m' per metri, 'pz' per pezzi)
   String get unitaMisura => isMetri ? 'm' : 'pz';
 
+  /// Ogni inserimento di corda in metri equivale a 1 singolo pezzo (matassa/spezzone di corda),
+  /// mentre gli altri materiali contano per la loro quantità effettiva in pezzi.
+  int get numeroPezzi => isMetri ? 1 : quantitaPrelevata;
+
+  /// Numero di pezzi tornati (1 se presente per corde, altrimenti qtaTornata)
+  int get numeroPezziTornati {
+    if (isMetri) {
+      return (qtaTornata != null && qtaTornata! > 0) ? 1 : 0;
+    }
+    return qtaTornata ?? 0;
+  }
+
   DettaglioPrelievo copyWith({
     String? idDettaglio,
     String? prelievoId,

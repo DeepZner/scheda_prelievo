@@ -882,9 +882,14 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
                         final totMetri = _materialiScelti.values
                             .where((item) => item.materiale.isMetri)
                             .fold<int>(0, (sum, item) => sum + item.quantita);
-                        final totPezzi = _materialiScelti.values
+                        final totMatasse = _materialiScelti.values
+                            .where((item) => item.materiale.isMetri)
+                            .length;
+                        final totAltriPezzi = _materialiScelti.values
                             .where((item) => !item.materiale.isMetri)
                             .fold<int>(0, (sum, item) => sum + item.quantita);
+                        final totPezziTotali = totMatasse + totAltriPezzi;
+
                         return Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -892,7 +897,7 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Materiali (${_materialiScelti.length})',
+                                  'Materiali (${_materialiScelti.length} voci • $totPezziTotali ${totPezziTotali == 1 ? 'pezzo' : 'pezzi'})',
                                   style: theme.textTheme.titleMedium?.copyWith(
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -900,8 +905,10 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
                                 if (_materialiScelti.isNotEmpty)
                                   Text(
                                     [
-                                      if (totMetri > 0) '$totMetri m corde',
-                                      if (totPezzi > 0) '$totPezzi pz attrezz.',
+                                      if (totMetri > 0)
+                                        '$totMetri m corde ($totMatasse ${totMatasse == 1 ? 'matassa' : 'matasse'})',
+                                      if (totAltriPezzi > 0)
+                                        '$totAltriPezzi pz attrezz.',
                                     ].join(' • '),
                                     style: TextStyle(
                                       fontSize: 12,
@@ -1116,17 +1123,38 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
                             isEditing ? Icons.save : Icons.check_circle_outline,
                             size: 26,
                           ),
-                    label: Text(
-                      isLoading
-                          ? 'Salvataggio in corso...'
-                          : (isEditing
-                              ? 'SALVA MODIFICHE (${_materialiScelti.values.fold(0, (sum, i) => sum + i.quantita)} PEZZI)'
-                              : 'REGISTRA PRELIEVO (${_materialiScelti.values.fold(0, (sum, i) => sum + i.quantita)} PEZZI)'),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                      ),
+                    label: Builder(
+                      builder: (context) {
+                        if (isLoading) {
+                          return const Text(
+                            'Salvataggio in corso...',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          );
+                        }
+
+                        // Ogni corda in metri equivale a 1 singolo pezzo (matassa/spezzone di corda)
+                        final totalePezzi = _materialiScelti.values.fold<int>(
+                          0,
+                          (sum, i) =>
+                              sum + (i.materiale.isMetri ? 1 : i.quantita),
+                        );
+
+                        final testo = isEditing
+                            ? 'SALVA MODIFICHE ($totalePezzi ${totalePezzi == 1 ? 'PEZZO' : 'PEZZI'})'
+                            : 'REGISTRA PRELIEVO ($totalePezzi ${totalePezzi == 1 ? 'PEZZO' : 'PEZZI'})';
+
+                        return Text(
+                          testo,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ),
