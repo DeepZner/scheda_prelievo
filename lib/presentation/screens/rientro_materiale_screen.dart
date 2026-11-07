@@ -50,8 +50,23 @@ class _RientroMaterialeScreenState
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Rientro Materiale'),
-          centerTitle: true,
+          title: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Image.asset(
+                'assets/images/logo_scr.png',
+                height: 22,
+              ),
+              const SizedBox(width: 8),
+              const Flexible(
+                child: Text(
+                  'Rientro Materiale',
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          centerTitle: false,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             tooltip: 'Torna indietro (salva)',

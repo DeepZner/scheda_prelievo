@@ -92,12 +92,28 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Scheda Prelievo'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              'assets/images/logo_scr.png',
+              height: 22,
+            ),
+            const SizedBox(width: 8),
+            const Flexible(
+              child: Text(
+                'Scheda Prelievo',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
         centerTitle: false,
         actions: [
           prelievoAsync.maybeWhen(
             data: (p) => p != null && p.isModificabile
                 ? IconButton(
+                    visualDensity: VisualDensity.compact,
                     icon: const Icon(Icons.edit_outlined),
                     tooltip: 'Modifica scheda prelievo',
                     onPressed: () => context.push('/modifica-prelievo/${p.id}'),
@@ -108,6 +124,7 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
           prelievoAsync.maybeWhen(
             data: (p) => p != null
                 ? IconButton(
+                    visualDensity: VisualDensity.compact,
                     icon: const Icon(Icons.share_outlined),
                     tooltip: 'Copia riepilogo testuale',
                     onPressed: () => _copiaRiepilogoTesto(context, p),
@@ -118,6 +135,7 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
           prelievoAsync.maybeWhen(
             data: (p) => p != null && p.stato != StatoPrelievo.annullato
                 ? IconButton(
+                    visualDensity: VisualDensity.compact,
                     icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
                     tooltip: 'Annulla scheda prelievo (cancellazione logica)',
                     onPressed: () => _confermaEliminazione(context, ref),
@@ -159,25 +177,20 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Intestazione scheda: Logo SCR a sinistra e Badge di stato a destra
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          Image.asset(
-                            'assets/images/logo_scr.png',
-                            height: 28,
+                          Expanded(
+                            child: Text(
+                              prelievo.luogoGrotta,
+                              style: theme.textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
+                          const SizedBox(width: 8),
                           StatoBadge(stato: prelievo.stato),
                         ],
-                      ),
-                      const SizedBox(height: 12),
-                      // Nome luogo/grotta a piena larghezza per evitare wrapping forzato
-                      Text(
-                        prelievo.luogoGrotta,
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
                       ),
                       const SizedBox(height: 12),
                       Row(

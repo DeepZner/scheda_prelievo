@@ -740,8 +740,23 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEditing ? 'Modifica Prelievo' : 'Nuovo Prelievo'),
-        centerTitle: true,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              'assets/images/logo_scr.png',
+              height: 22,
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                isEditing ? 'Modifica Prelievo' : 'Nuovo Prelievo',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        centerTitle: false,
       ),
       body: SafeArea(
         child: Form(
@@ -763,21 +778,12 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              children: [
-                                Image.asset(
-                                  'assets/images/logo_scr.png',
-                                  height: 24,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Dati Testata',
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: theme.colorScheme.primary,
-                                  ),
-                                ),
-                              ],
+                            Text(
+                              'Dati Testata',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.primary,
+                              ),
                             ),
                             const SizedBox(height: 16),
                             // Campo Luogo / Grotta
