@@ -50,7 +50,17 @@ class _RientroMaterialeScreenState
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Rientro Materiale'),
+          title: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Image.asset(
+                'assets/images/logo_scr.png',
+                height: 24,
+              ),
+              const SizedBox(width: 8),
+              const Text('Rientro Materiale'),
+            ],
+          ),
           centerTitle: true,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),

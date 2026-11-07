@@ -20,9 +20,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          _currentIndex == 0 ? 'Spunta Rientro' : 'Storico Prelievi',
-          style: const TextStyle(fontWeight: FontWeight.bold),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              'assets/images/logo_scr.png',
+              height: 26,
+            ),
+            const SizedBox(width: 10),
+            Text(
+              _currentIndex == 0 ? 'Storico Prelievi' : 'Spunta Rientro',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ],
         ),
         centerTitle: true,
         actions: const [
@@ -31,8 +41,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
       body: _currentIndex == 0
-          ? const _SpuntaRientroTab()
-          : const _StoricoTab(),
+          ? const _StoricoTab()
+          : const _SpuntaRientroTab(),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: FloatingActionButton.extended(
         elevation: 4,
@@ -53,14 +63,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         onDestinationSelected: (idx) => setState(() => _currentIndex = idx),
         destinations: const [
           NavigationDestination(
-            icon: Icon(Icons.assignment_return_outlined),
-            selectedIcon: Icon(Icons.assignment_return),
-            label: 'Spunta Rientro',
-          ),
-          NavigationDestination(
             icon: Icon(Icons.history_outlined),
             selectedIcon: Icon(Icons.history),
             label: 'Storico',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.assignment_return_outlined),
+            selectedIcon: Icon(Icons.assignment_return),
+            label: 'Spunta Rientro',
           ),
         ],
       ),

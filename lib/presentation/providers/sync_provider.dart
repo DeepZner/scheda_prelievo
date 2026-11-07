@@ -57,10 +57,7 @@ class SyncController extends StateNotifier<AsyncValue<SyncResult?>> {
     final service = _ref.read(syncServiceProvider);
     final result = await service.scaricaDaGoogleSheets(url);
     if (result.isSuccess) {
-      _ref.invalidate(prelieviListProvider);
-      _ref.invalidate(prelieviInAttesaProvider);
-      _ref.invalidate(pendingSyncCountProvider);
-      _ref.invalidate(pendingPayloadProvider);
+      _invalidateAllPrelieviProviders();
     }
     return result;
   }
@@ -77,13 +74,19 @@ class SyncController extends StateNotifier<AsyncValue<SyncResult?>> {
         onUploadPayload: onUploadPayload,
         webAppUrlOverride: webAppUrlOverride,
       );
-      _ref.invalidate(pendingSyncCountProvider);
-      _ref.invalidate(pendingPayloadProvider);
-      _ref.invalidate(prelieviListProvider);
-      _ref.invalidate(prelieviInAttesaProvider);
+      _invalidateAllPrelieviProviders();
       return result;
     });
     return result;
+  }
+
+  void _invalidateAllPrelieviProviders() {
+    _ref.invalidate(pendingSyncCountProvider);
+    _ref.invalidate(pendingPayloadProvider);
+    _ref.invalidate(prelieviListProvider);
+    _ref.invalidate(prelieviInAttesaProvider);
+    _ref.invalidate(storicoRaggruppatoProvider);
+    _ref.invalidate(prelievoDetailProvider);
   }
 }
 

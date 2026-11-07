@@ -92,7 +92,17 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Scheda Prelievo'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              'assets/images/logo_scr.png',
+              height: 24,
+            ),
+            const SizedBox(width: 8),
+            const Text('Scheda Prelievo'),
+          ],
+        ),
         centerTitle: true,
         actions: [
           prelievoAsync.maybeWhen(
@@ -162,6 +172,11 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
+                          Image.asset(
+                            'assets/images/logo_scr.png',
+                            height: 26,
+                          ),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               prelievo.luogoGrotta,
@@ -170,6 +185,7 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
                               ),
                             ),
                           ),
+                          const SizedBox(width: 8),
                           StatoBadge(stato: prelievo.stato),
                         ],
                       ),

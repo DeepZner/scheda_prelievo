@@ -20,8 +20,7 @@ final prelieviInAttesaProvider = FutureProvider<List<Prelievo>>((ref) async {
 /// Provider per la vista Storico: prelievi raggruppati per stati con ordinamento ascendente (dal più vecchio al più recente)
 final storicoRaggruppatoProvider =
     FutureProvider<Map<StatoPrelievo, List<Prelievo>>>((ref) async {
-  final repository = ref.watch(prelievoRepositoryProvider);
-  final tutti = await repository.getAllPrelievi();
+  final tutti = await ref.watch(prelieviListProvider.future);
 
   // Definisce l'ordine logico degli stati
   final Map<StatoPrelievo, List<Prelievo>> grouped = {

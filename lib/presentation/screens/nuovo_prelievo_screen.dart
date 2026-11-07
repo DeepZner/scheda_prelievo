@@ -740,7 +740,17 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEditing ? 'Modifica Prelievo' : 'Nuovo Prelievo'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              'assets/images/logo_scr.png',
+              height: 24,
+            ),
+            const SizedBox(width: 8),
+            Text(isEditing ? 'Modifica Prelievo' : 'Nuovo Prelievo'),
+          ],
+        ),
         centerTitle: true,
       ),
       body: SafeArea(
@@ -763,12 +773,21 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'Dati Testata',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: theme.colorScheme.primary,
-                              ),
+                            Row(
+                              children: [
+                                Image.asset(
+                                  'assets/images/logo_scr.png',
+                                  height: 24,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Dati Testata',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                ),
+                              ],
                             ),
                             const SizedBox(height: 16),
                             // Campo Luogo / Grotta

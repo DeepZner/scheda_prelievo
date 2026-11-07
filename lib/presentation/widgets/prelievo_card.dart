@@ -43,6 +43,11 @@ class PrelievoCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  Image.asset(
+                    'assets/images/logo_scr.png',
+                    height: 20,
+                  ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       prelievo.luogoGrotta,
@@ -59,6 +64,7 @@ class PrelievoCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                  const SizedBox(width: 8),
                   StatoBadge(stato: prelievo.stato),
                 ],
               ),
