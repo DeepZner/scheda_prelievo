@@ -178,11 +178,13 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
                         children: [
                           const Icon(Icons.person, size: 20, color: Colors.grey),
                           const SizedBox(width: 8),
-                          Text(
-                            prelievo.responsabile,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
+                          Expanded(
+                            child: Text(
+                              prelievo.responsabile,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ],
@@ -394,16 +396,11 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
               ],
 
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Materiali (${prelievo.dettagli.length} voci • $totalePezziFisici pezzi${riepilogoMateriali.isNotEmpty ? ' • $riepilogoMateriali' : ''})',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
+              Text(
+                'Materiali (${prelievo.dettagli.length} voci • $totalePezziFisici pezzi${riepilogoMateriali.isNotEmpty ? ' • $riepilogoMateriali' : ''})',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 10),
 

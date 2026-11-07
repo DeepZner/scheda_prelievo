@@ -908,33 +908,36 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
                         return Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Materiali (${_materialiScelti.length} voci • $totPezziTotali ${totPezziTotali == 1 ? 'pezzo' : 'pezzi'})',
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                if (_materialiScelti.isNotEmpty)
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
                                   Text(
-                                    [
-                                      if (totMetri > 0)
-                                        '$totMetri m corde ($totMatasse ${totMatasse == 1 ? 'matassa' : 'matasse'})',
-                                      if (totAltriPezzi > 0)
-                                        '$totAltriPezzi pz attrezz.',
-                                    ].join(' • '),
-                                    style: TextStyle(
-                                      fontSize: 12,
+                                    'Materiali (${_materialiScelti.length} voci • $totPezziTotali ${totPezziTotali == 1 ? 'pezzo' : 'pezzi'})',
+                                    style: theme.textTheme.titleMedium?.copyWith(
                                       fontWeight: FontWeight.bold,
-                                      color: totMetri > 0
-                                          ? Colors.deepOrange
-                                          : theme.colorScheme.primary,
                                     ),
                                   ),
-                              ],
+                                  if (_materialiScelti.isNotEmpty)
+                                    Text(
+                                      [
+                                        if (totMetri > 0)
+                                          '$totMetri m corde ($totMatasse ${totMatasse == 1 ? 'matassa' : 'matasse'})',
+                                        if (totAltriPezzi > 0)
+                                          '$totAltriPezzi pz attrezz.',
+                                      ].join(' • '),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: totMetri > 0
+                                            ? Colors.deepOrange
+                                            : theme.colorScheme.primary,
+                                      ),
+                                    ),
+                                ],
+                              ),
                             ),
+                            const SizedBox(width: 8),
                             // Pulsante grande per aprire BottomSheet catalogo (min 48dp)
                             FilledButton.tonalIcon(
                               style: FilledButton.styleFrom(
@@ -1008,97 +1011,90 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
                           elevation: 1.5,
                           child: Padding(
                             padding: const EdgeInsets.all(12),
-                            child: Row(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                CircleAvatar(
-                                  radius: 20,
-                                  backgroundColor:
-                                      theme.colorScheme.primaryContainer,
-                                  child: Icon(
-                                    _iconaPerCategoria(item.materiale.categoria),
-                                    size: 20,
-                                    color: theme.colorScheme.onPrimaryContainer,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        nomeMostrato,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 15,
-                                        ),
+                                Row(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 20,
+                                      backgroundColor:
+                                          theme.colorScheme.primaryContainer,
+                                      child: Icon(
+                                        _iconaPerCategoria(item.materiale.categoria),
+                                        size: 20,
+                                        color: theme.colorScheme.onPrimaryContainer,
                                       ),
-                                      Row(
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
+                                          Text(
+                                            nomeMostrato,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
                                           Text(
                                             item.materiale.categoria,
                                             style: TextStyle(
                                               color: item.materiale.isMetri
                                                   ? Colors.deepOrange
                                                   : theme.colorScheme.primary,
-                                              fontSize: 12,
+                                              fontSize: 13,
                                               fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 6),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 6,
-                                              vertical: 1,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: item.materiale.isMetri
-                                                  ? Colors.deepOrange.shade50
-                                                  : theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
-                                              borderRadius: BorderRadius.circular(6),
-                                            ),
-                                            child: Text(
-                                              '${item.quantita} ${item.materiale.unitaMisura}',
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.bold,
-                                                color: item.materiale.isMetri
-                                                    ? Colors.deepOrange.shade900
-                                                    : theme.colorScheme.primary,
-                                              ),
                                             ),
                                           ),
                                         ],
                                       ),
-                                    ],
-                                  ),
-                                ),
-                                // Stepper ergonomico a grande touch target (48x48)
-                                QuantityStepper(
-                                  value: item.quantita,
-                                  minValue: 1,
-                                  unit: item.materiale.unitaMisura,
-                                  isMetri: item.materiale.isMetri,
-                                  itemName: nomeMostrato,
-                                  onChanged: (newVal) => _aggiornaQuantita(
-                                    item.rigaId,
-                                    newVal,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                // Pulsante Cancella (touch target 48x48)
-                                SizedBox(
-                                  width: 48,
-                                  height: 48,
-                                  child: IconButton(
-                                    icon: const Icon(
-                                      Icons.delete_outline,
-                                      color: Colors.redAccent,
-                                      size: 24,
                                     ),
-                                    onPressed: () => _rimuoviMateriale(
-                                      item.rigaId,
+                                    // Pulsante Cancella (touch target 48x48)
+                                    SizedBox(
+                                      width: 48,
+                                      height: 48,
+                                      child: IconButton(
+                                        icon: const Icon(
+                                          Icons.delete_outline,
+                                          color: Colors.redAccent,
+                                          size: 24,
+                                        ),
+                                        tooltip: 'Rimuovi materiale',
+                                        onPressed: () => _rimuoviMateriale(
+                                          item.rigaId,
+                                        ),
+                                      ),
                                     ),
-                                  ),
+                                  ],
+                                ),
+                                const Divider(height: 16),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Quantità da prelevare:',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.grey.shade700,
+                                      ),
+                                    ),
+                                    // Stepper ergonomico a grande touch target (48x48)
+                                    QuantityStepper(
+                                      value: item.quantita,
+                                      minValue: 1,
+                                      unit: item.materiale.unitaMisura,
+                                      isMetri: item.materiale.isMetri,
+                                      itemName: nomeMostrato,
+                                      onChanged: (newVal) => _aggiornaQuantita(
+                                        item.rigaId,
+                                        newVal,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
