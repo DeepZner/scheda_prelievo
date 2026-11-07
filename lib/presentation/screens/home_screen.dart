@@ -232,6 +232,34 @@ class _PrelievoCard extends StatelessWidget {
                 ],
               ),
               const Divider(height: 20),
+              if (prelievo.haSpuntaInCorso) ...[
+                Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.amber.shade400),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.pending_actions_rounded,
+                          size: 14, color: Colors.amber.shade900),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Spunta in corso (${prelievo.articoliSpuntatiCount}/${prelievo.dettagli.length} articoli)',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.amber.shade900,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [

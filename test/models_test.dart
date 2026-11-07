@@ -99,30 +99,37 @@ void main() {
         dettagli: [detIniziale],
       );
       expect(prelModificabile.isModificabile, isTrue);
+      expect(prelModificabile.haSpuntaInCorso, isFalse);
+      expect(prelModificabile.articoliSpuntatiCount, 0);
 
       // 2. In attesa ma con spuntaRientro = true -> NON modificabile
       final prelSpuntaIniziata = prelModificabile.copyWith(
         dettagli: [detIniziale.copyWith(spuntaRientro: true)],
       );
       expect(prelSpuntaIniziata.isModificabile, isFalse);
+      expect(prelSpuntaIniziata.haSpuntaInCorso, isTrue);
+      expect(prelSpuntaIniziata.articoliSpuntatiCount, 1);
 
       // 3. In attesa ma con ammanco parziale registrato -> NON modificabile
       final prelQtaModificata = prelModificabile.copyWith(
         dettagli: [detIniziale.copyWith(qtaTornata: 4)],
       );
       expect(prelQtaModificata.isModificabile, isFalse);
+      expect(prelQtaModificata.haSpuntaInCorso, isTrue);
 
       // 4. In attesa ma con nota rientro inserita -> NON modificabile
       final prelNotaInserita = prelModificabile.copyWith(
         dettagli: [detIniziale.copyWith(noteRientro: 'Spaccato')],
       );
       expect(prelNotaInserita.isModificabile, isFalse);
+      expect(prelNotaInserita.haSpuntaInCorso, isTrue);
 
-      // 5. Scheda già conclusa -> NON modificabile
+      // 5. Scheda già conclusa -> NON modificabile e NON in corso
       final prelChiuso = prelModificabile.copyWith(
         stato: StatoPrelievo.rientrato,
       );
       expect(prelChiuso.isModificabile, isFalse);
+      expect(prelChiuso.haSpuntaInCorso, isFalse);
     });
 
     test('StatoPrelievo enum conversion', () {

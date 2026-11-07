@@ -62,6 +62,18 @@ class PrelieviController extends StateNotifier<AsyncValue<void>> {
     }
   }
 
+  Future<void> salvaBozzaSpunta({
+    required String prelievoId,
+    required List<DettaglioPrelievo> dettagli,
+  }) async {
+    final repository = _ref.read(prelievoRepositoryProvider);
+    await repository.salvaBozzaSpunta(
+      prelievoId: prelievoId,
+      dettagli: dettagli,
+    );
+    _invalidateLists();
+  }
+
   Future<void> confermaRiconsegna({
     required String prelievoId,
     required List<DettaglioPrelievo> dettagli,

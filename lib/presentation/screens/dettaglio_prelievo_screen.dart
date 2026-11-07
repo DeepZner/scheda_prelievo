@@ -332,9 +332,11 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
                       ),
                     ),
                     icon: const Icon(Icons.assignment_turned_in, size: 24),
-                    label: const Text(
-                      'PROCEDI CON LA SPUNTA RIENTRO',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    label: Text(
+                      prelievo.haSpuntaInCorso
+                          ? 'CONTINUA SPUNTA RIENTRO (${prelievo.articoliSpuntatiCount}/${prelievo.dettagli.length})'
+                          : 'PROCEDI CON LA SPUNTA RIENTRO',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                     ),
                     onPressed: () => context.go('/rientro/${prelievo.id}'),
                   ),

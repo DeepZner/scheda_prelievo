@@ -26,6 +26,8 @@ class RientroMaterialeScreen extends ConsumerStatefulWidget {
 class _RientroMaterialeScreenState
     extends ConsumerState<RientroMaterialeScreen> {
   String? _selectedPrelievoId;
+  final GlobalKey<_DettagliListViewState> _dettagliKey =
+      GlobalKey<_DettagliListViewState>();
 
   @override
   void initState() {
@@ -38,151 +40,241 @@ class _RientroMaterialeScreenState
     final theme = Theme.of(context);
     final inAttesaAsync = ref.watch(prelieviInAttesaProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Rientro Materiale'),
-        centerTitle: true,
-      ),
-      body: inAttesaAsync.when(
-        data: (prelieviInAttesa) {
-          if (prelieviInAttesa.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.task_alt_rounded,
-                      size: 72,
-                      color: Colors.green.shade600,
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Nessun prelievo in attesa!',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Tutti i materiali prelevati risultano già rientrati nel magazzino speleo.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey, fontSize: 15),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-
-          if (_selectedPrelievoId == null ||
-              !prelieviInAttesa.any((p) => p.id == _selectedPrelievoId)) {
-            _selectedPrelievoId = prelieviInAttesa.first.id;
-          }
-
-          final prelievoCorrente = prelieviInAttesa.firstWhere(
-            (p) => p.id == _selectedPrelievoId,
-          );
-
-          return SafeArea(
-            child: Column(
-              children: [
-                // Selettore del prelievo "In attesa materiale"
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest,
-                    border: Border(
-                      bottom: BorderSide(color: Colors.grey.shade300),
-                    ),
-                  ),
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, _) {
+        _dettagliKey.currentState?.salvaLavoroInCorso(mostraFeedback: false);
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Rientro Materiale'),
+          centerTitle: true,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            tooltip: 'Torna indietro (salva)',
+            onPressed: () async {
+              await _dettagliKey.currentState
+                  ?.salvaLavoroInCorso(mostraFeedback: false);
+              if (context.mounted) {
+                Navigator.of(context).maybePop();
+              }
+            },
+          ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.save_outlined),
+              tooltip: 'Salva lavoro in corso',
+              onPressed: () {
+                _dettagliKey.currentState
+                    ?.salvaLavoroInCorso(mostraFeedback: true);
+              },
+            ),
+          ],
+        ),
+        body: inAttesaAsync.when(
+          data: (prelieviInAttesa) {
+            if (prelieviInAttesa.isEmpty) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.assignment_late_outlined,
-                            size: 20,
-                            color: theme.colorScheme.primary,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Seleziona Prelievo da Riconsegnare:',
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: theme.colorScheme.primary,
-                            ),
-                          ),
-                        ],
+                      Icon(
+                        Icons.task_alt_rounded,
+                        size: 72,
+                        color: Colors.green.shade600,
                       ),
-                      const SizedBox(height: 6),
-                      Container(
-                        height: 52,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surface,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey.shade400),
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            isExpanded: true,
-                            value: _selectedPrelievoId,
-                            icon: const Icon(Icons.arrow_drop_down, size: 28),
-                            items: prelieviInAttesa.map((p) {
-                              return DropdownMenuItem<String>(
-                                value: p.id,
-                                child: Text(
-                                  '${p.luogoGrotta} - ${p.responsabile}',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              );
-                            }).toList(),
-                            onChanged: (nuovoId) {
-                              if (nuovoId != null) {
-                                setState(() => _selectedPrelievoId = nuovoId);
-                              }
-                            },
-                          ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Nessun prelievo in attesa!',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          const Icon(Icons.calendar_today, size: 14, color: Colors.grey),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Data: ${prelievoCorrente.dataPrelievo.day.toString().padLeft(2, '0')}/${prelievoCorrente.dataPrelievo.month.toString().padLeft(2, '0')}/${prelievoCorrente.dataPrelievo.year}',
-                            style: const TextStyle(fontSize: 13, color: Colors.grey),
-                          ),
-                          const Spacer(),
-                          StatoBadge(stato: prelievoCorrente.stato),
-                        ],
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Tutti i materiali prelevati risultano già rientrati nel magazzino speleo.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.grey, fontSize: 15),
                       ),
                     ],
                   ),
                 ),
+              );
+            }
 
-                Expanded(
-                  child: _DettagliListView(
-                    key: ValueKey(prelievoCorrente.id),
-                    prelievo: prelievoCorrente,
+            if (_selectedPrelievoId == null ||
+                !prelieviInAttesa.any((p) => p.id == _selectedPrelievoId)) {
+              _selectedPrelievoId = prelieviInAttesa.first.id;
+            }
+
+            final prelievoCorrente = prelieviInAttesa.firstWhere(
+              (p) => p.id == _selectedPrelievoId,
+            );
+
+            return SafeArea(
+              child: Column(
+                children: [
+                  // Selettore del prelievo "In attesa materiale"
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceContainerHighest,
+                      border: Border(
+                        bottom: BorderSide(color: Colors.grey.shade300),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.assignment_late_outlined,
+                              size: 20,
+                              color: theme.colorScheme.primary,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Seleziona Prelievo da Riconsegnare:',
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Container(
+                          height: 52,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surface,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey.shade400),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              isExpanded: true,
+                              value: _selectedPrelievoId,
+                              icon: const Icon(Icons.arrow_drop_down, size: 28),
+                              items: prelieviInAttesa.map((p) {
+                                final inCorso = p.haSpuntaInCorso;
+                                final spuntati = p.articoliSpuntatiCount;
+                                return DropdownMenuItem<String>(
+                                  value: p.id,
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          '${p.luogoGrotta} - ${p.responsabile}',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 15,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      if (inCorso)
+                                        Container(
+                                          margin: const EdgeInsets.only(left: 6),
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.amber.shade100,
+                                            borderRadius:
+                                                BorderRadius.circular(6),
+                                            border: Border.all(
+                                                color: Colors.amber.shade400),
+                                          ),
+                                          child: Text(
+                                            'Bozza $spuntati/${p.dettagli.length}',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.amber.shade900,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (nuovoId) async {
+                                if (nuovoId != null &&
+                                    nuovoId != _selectedPrelievoId) {
+                                  await _dettagliKey.currentState
+                                      ?.salvaLavoroInCorso(mostraFeedback: false);
+                                  setState(() => _selectedPrelievoId = nuovoId);
+                                }
+                              },
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            const Icon(Icons.calendar_today,
+                                size: 14, color: Colors.grey),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Data: ${prelievoCorrente.dataPrelievo.day.toString().padLeft(2, '0')}/${prelievoCorrente.dataPrelievo.month.toString().padLeft(2, '0')}/${prelievoCorrente.dataPrelievo.year}',
+                              style: const TextStyle(
+                                  fontSize: 13, color: Colors.grey),
+                            ),
+                            const Spacer(),
+                            if (prelievoCorrente.haSpuntaInCorso) ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: Colors.amber.shade100,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border:
+                                      Border.all(color: Colors.amber.shade600),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.edit_note,
+                                        size: 14, color: Colors.amber.shade900),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Spunta in corso (${prelievoCorrente.articoliSpuntatiCount}/${prelievoCorrente.dettagli.length})',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.amber.shade900,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                            ],
+                            StatoBadge(stato: prelievoCorrente.stato),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(
-          child: Text('Errore: $err'),
+
+                  Expanded(
+                    child: _DettagliListView(
+                      key: _dettagliKey,
+                      prelievo: prelievoCorrente,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, stack) => Center(
+            child: Text('Errore: $err'),
+          ),
         ),
       ),
     );
@@ -206,6 +298,7 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
   late Map<String, int> _qtaTornate;
   late Map<String, TextEditingController> _noteControllers;
   final Map<String, Timer?> _debounceTimers = {};
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -230,6 +323,7 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
   void didUpdateWidget(covariant _DettagliListView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.prelievo.id != widget.prelievo.id) {
+      _flushDebounceTimers();
       _disposeControllers();
       _initValues();
     }
@@ -237,6 +331,7 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
 
   @override
   void dispose() {
+    _flushDebounceTimers();
     _disposeControllers();
     super.dispose();
   }
@@ -245,8 +340,95 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
     for (final timer in _debounceTimers.values) {
       timer?.cancel();
     }
+    _debounceTimers.clear();
     for (final controller in _noteControllers.values) {
       controller.dispose();
+    }
+    _noteControllers.clear();
+  }
+
+  void _flushDebounceTimers() {
+    for (final entry in _debounceTimers.entries) {
+      if (entry.value?.isActive ?? false) {
+        entry.value!.cancel();
+        final idDettaglio = entry.key;
+        final note = _noteControllers[idDettaglio]?.text ?? '';
+        final spunta = _spunte[idDettaglio] ?? false;
+        final qta = _qtaTornate[idDettaglio] ?? 0;
+        ref.read(prelieviControllerProvider.notifier).aggiornaDettaglioRientro(
+              idDettaglio: idDettaglio,
+              spuntaRientro: spunta,
+              qtaTornata: qta,
+              noteRientro: note.trim().isEmpty ? null : note.trim(),
+              invalidate: false,
+            );
+      }
+    }
+    _debounceTimers.clear();
+  }
+
+  Future<void> salvaLavoroInCorso({bool mostraFeedback = true}) async {
+    if (_isSaving) return;
+    _isSaving = true;
+
+    try {
+      _flushDebounceTimers();
+
+      final List<DettaglioPrelievo> dettagliAggiornati = [];
+      for (final d in widget.prelievo.dettagli) {
+        final spuntato = _spunte[d.idDettaglio] ?? false;
+        final qta = _qtaTornate[d.idDettaglio] ?? d.quantitaPrelevata;
+        final nota = _noteControllers[d.idDettaglio]?.text.trim();
+        final notaPulita = (nota == null || nota.isEmpty) ? null : nota;
+
+        dettagliAggiornati.add(
+          d.copyWith(
+            spuntaRientro: spuntato,
+            qtaTornata: spuntato ? qta : (d.qtaTornata ?? d.quantitaPrelevata),
+            noteRientro: notaPulita,
+            isSynced: false,
+          ),
+        );
+      }
+
+      await ref.read(prelieviControllerProvider.notifier).salvaBozzaSpunta(
+            prelievoId: widget.prelievo.id,
+            dettagli: dettagliAggiornati,
+          );
+
+      if (mostraFeedback && mounted) {
+        final spuntati = _spunte.values.where((v) => v).length;
+        final totale = widget.prelievo.dettagli.length;
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.indigo.shade800,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, color: Colors.white),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Lavoro salvato! ($spuntati/$totale spuntati). Puoi riprendere in qualsiasi momento.',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      } else {
+        _isSaving = false;
+      }
     }
   }
 
@@ -268,20 +450,23 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
 
   Future<void> _spuntaTutto() async {
     for (final d in widget.prelievo.dettagli) {
-      setState(() {
-        _spunte[d.idDettaglio] = true;
-        _qtaTornate[d.idDettaglio] = d.quantitaPrelevata;
-      });
-      await _aggiornaRigaImmediatamente(
-        idDettaglio: d.idDettaglio,
-        spunta: true,
-        qtaTornata: d.quantitaPrelevata,
-        note: _noteControllers[d.idDettaglio]?.text ?? '',
-      );
+      _spunte[d.idDettaglio] = true;
+      _qtaTornate[d.idDettaglio] = d.quantitaPrelevata;
     }
+    setState(() {});
+    await salvaLavoroInCorso(mostraFeedback: false);
+  }
+
+  Future<void> _deselezionaTutto() async {
+    for (final d in widget.prelievo.dettagli) {
+      _spunte[d.idDettaglio] = false;
+    }
+    setState(() {});
+    await salvaLavoroInCorso(mostraFeedback: false);
   }
 
   Future<void> _concludiRiconsegna() async {
+    _flushDebounceTimers();
     final timestampConclusione = DateTime.now();
 
     bool tuttoRientrato = true;
@@ -614,6 +799,10 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
       );
     }
 
+    final spuntatiCount = _spunte.values.where((v) => v).length;
+    final tuttiSpuntati =
+        spuntatiCount == dettagli.length && dettagli.isNotEmpty;
+
     return Column(
       children: [
         Padding(
@@ -621,23 +810,51 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Righe Materiale (${dettagli.length})',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
-                ),
+              Row(
+                children: [
+                  Text(
+                    'Materiali ($spuntatiCount/${dettagli.length} spuntati)',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                  ),
+                  if (spuntatiCount > 0 && !tuttiSpuntati) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.shade100,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text(
+                        'In corso',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.deepOrange,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
               TextButton.icon(
                 style: TextButton.styleFrom(
                   minimumSize: const Size(48, 48),
                 ),
-                icon: const Icon(Icons.done_all_rounded, size: 20),
-                label: const Text(
-                  'SPUNTA TUTTI',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                icon: Icon(
+                  tuttiSpuntati
+                      ? Icons.clear_all_rounded
+                      : Icons.done_all_rounded,
+                  size: 20,
                 ),
-                onPressed: _spuntaTutto,
+                label: Text(
+                  tuttiSpuntati ? 'DESELEZIONA TUTTI' : 'SPUNTA TUTTI',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                onPressed: tuttiSpuntati ? _deselezionaTutto : _spuntaTutto,
               ),
             ],
           ),
@@ -830,26 +1047,67 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
               ),
             ],
           ),
-          child: SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: FilledButton.icon(
-              style: FilledButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+          child: Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 52,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(52),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      side: BorderSide(
+                        color: theme.colorScheme.primary,
+                        width: 1.5,
+                      ),
+                    ),
+                    onPressed: _isSaving
+                        ? null
+                        : () => salvaLavoroInCorso(mostraFeedback: true),
+                    icon: _isSaving
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.save_outlined, size: 22),
+                    label: const Text(
+                      'SALVA LAVORO',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
                 ),
               ),
-              onPressed: _concludiRiconsegna,
-              icon: const Icon(Icons.done_all, size: 26),
-              label: const Text(
-                'CONCLUDI RICONSEGNA',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
+              const SizedBox(width: 12),
+              Expanded(
+                child: SizedBox(
+                  height: 52,
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(52),
+                      backgroundColor: Colors.deepOrange.shade800,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    onPressed: _isSaving ? null : _concludiRiconsegna,
+                    icon: const Icon(Icons.done_all, size: 22),
+                    label: const Text(
+                      'CONCLUDI',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
         ),
       ],

@@ -2,20 +2,21 @@
  * GOOGLE APPS SCRIPT - SPELEO CLUB ROMA
  * Webhook per Sincronizzazione Magazzino Speleo (Offline-First Flutter App)
  * 
- * ISTRUZIONI:
+ * ISTRUZIONI DI INSTALLAZIONE / AGGIORNAMENTO:
  * 1. Apri il tuo foglio Google Sheets su Google Drive.
- * 2. Clicca su "Estensioni" -> "Apps Script".
- * 3. Incolla questo codice nel file Code.gs (sostituendo il contenuto esistente).
- * 4. Clicca su "Salva" (icona dischetto).
- * 5. Seleziona dal menu a tendina delle funzioni "correggiEFormattaTuttiIFogli" e clicca su "Esegui".
- *    -> Questo allineerà automaticamente TUTTI i fogli (Prelievi, Dettagli, Catalogo)
- *       senza farti perdere neanche un dato!
- * 6. Clicca su "Distribuisci" -> "Gestisci distribuzioni" -> modifica la distribuzione attiva
- *    (oppure "Nuova distribuzione"):
- *    - Tipo: "Applicazione web" (Web App).
- *    - Esegui come: "Io" (Me).
- *    - Chi ha accesso: "Chiunque" (Anyone).
- * 7. Copia l'URL dell'applicazione web (termina con /exec) e inseriscilo nell'app Speleo Magazzino.
+ * 2. Nel menu in alto clicca su "Estensioni" -> "Apps Script".
+ * 3. Seleziona tutto il codice esistente nell'editor (Ctrl+A o Cmd+A) e cancellalo.
+ * 4. Incolla questo codice integrale.
+ * 5. Clicca sull'icona del "Dischetto" (Salva) o premi Ctrl+S.
+ * 6. Nella barra in alto, a fianco del tasto "Esegui", seleziona dal menu a tendina
+ *    la funzione "correggiEFormattaTuttiIFogli" e clicca su "Esegui".
+ *    (Se Google chiede l'autorizzazione all'accesso al foglio, conferma con il tuo account).
+ * 7. Torna al foglio: vedrai tutti i fogli e colonne allineati e formattati automaticamente!
+ * 8. Per aggiornare la Web App usata dallo smartphone:
+ *    - In alto a destra clicca "Distribuisci" -> "Gestisci distribuzioni".
+ *    - Clicca sull'icona della matita (Modifica).
+ *    - Nel menu a tendina "Versione" seleziona "Nuova versione".
+ *    - Clicca su "Distribuisci".
  */
 
 // Nomi dei fogli all'interno del documento
@@ -105,7 +106,7 @@ function doGet(e) {
       if (sheetP) {
         const dataP = sheetP.getDataRange().getValues();
         if (dataP.length > 1) {
-          const headerP = dataP[0].map(h => h.toString().toLowerCase().trim());
+          const headerP = dataP[0].map(function(h) { return h.toString().toLowerCase().trim(); });
           
           const colId = findColIndex(headerP, ["id", "id_prelievo", "id prelievo"], -1);
           const colData = findColIndex(headerP, ["data", "data prelievo", "data di prelievo"], -1);
@@ -168,7 +169,7 @@ function doGet(e) {
       if (sheetD) {
         const dataD = sheetD.getDataRange().getValues();
         if (dataD.length > 1) {
-          const headerD = dataD[0].map(h => h.toString().toLowerCase().trim());
+          const headerD = dataD[0].map(function(h) { return h.toString().toLowerCase().trim(); });
           
           const colIdDet = findColIndex(headerD, ["id dettaglio", "id_dettaglio", "id"], -1);
           const colPrelievoId = findColIndex(headerD, ["id prelievo", "id_prelievo"], -1);
@@ -296,6 +297,9 @@ function syncPrelievi(sheet, prelievi, tuttiDettagli) {
     let idx = findColIndex(headers, possibleMatches, -1);
     if (idx === -1) {
       idx = headers.length;
+      if (sheet.getMaxColumns() < idx + 1) {
+        sheet.insertColumnsAfter(sheet.getMaxColumns(), (idx + 1) - sheet.getMaxColumns());
+      }
       sheet.getRange(1, idx + 1).setValue(name);
       headers.push(name.toLowerCase().trim());
       styleHeader(sheet, headers.length);
@@ -360,6 +364,10 @@ function syncPrelievi(sheet, prelievi, tuttiDettagli) {
     rowValues[colNotifica] = (notificaGiaInviata || inviataOra) ? "SI" : "NO";
     rowValues[colAggiornamento] = nowStr;
 
+    if (sheet.getMaxColumns() < rowLength) {
+      sheet.insertColumnsAfter(sheet.getMaxColumns(), rowLength - sheet.getMaxColumns());
+    }
+
     if (targetRow) {
       sheet.getRange(targetRow, 1, 1, rowValues.length).setValues([rowValues]);
     } else {
@@ -388,6 +396,9 @@ function syncDettagli(sheet, dettagli) {
     let idx = findColIndex(headers, possibleMatches, -1);
     if (idx === -1) {
       idx = headers.length;
+      if (sheet.getMaxColumns() < idx + 1) {
+        sheet.insertColumnsAfter(sheet.getMaxColumns(), (idx + 1) - sheet.getMaxColumns());
+      }
       sheet.getRange(1, idx + 1).setValue(name);
       headers.push(name.toLowerCase().trim());
       styleHeader(sheet, headers.length);
@@ -432,6 +443,10 @@ function syncDettagli(sheet, dettagli) {
     rowValues[colQtaTornata] = (d.qta_tornata !== null && d.qta_tornata !== undefined) ? d.qta_tornata : "";
     rowValues[colNote] = d.note_rientro || "";
     rowValues[colAgg] = nowStr;
+
+    if (sheet.getMaxColumns() < rowLength) {
+      sheet.insertColumnsAfter(sheet.getMaxColumns(), rowLength - sheet.getMaxColumns());
+    }
 
     if (idToRowMap[d.id_dettaglio]) {
       const targetRow = idToRowMap[d.id_dettaglio];
@@ -545,8 +560,8 @@ function setupSheetsIfNeeded(ss) {
     const headersP = [
       ["ID Prelievo", "Data Prelievo", "Luogo / Grotta", "Responsabile", "Stato", "Data Riconsegna", "Operatore", "Email Magazzinieri", "Note / Parere", "Notifica Inviata", "Ultimo Aggiornamento"]
     ];
-    sheetP.getRange(1, 1, 1, headersP[0].length).setValues(headersP);
     styleHeader(sheetP, headersP[0].length);
+    sheetP.getRange(1, 1, 1, headersP[0].length).setValues(headersP);
   }
 
   let sheetD = ss.getSheetByName(SHEET_DETTAGLI);
@@ -555,8 +570,8 @@ function setupSheetsIfNeeded(ss) {
     const headersD = [
       ["ID Dettaglio", "ID Prelievo", "ID Materiale", "Categoria", "Nome Materiale", "Q.tà Prelevata", "Spunta Rientro", "Q.tà Tornata", "Note Rientro", "Ultimo Aggiornamento"]
     ];
-    sheetD.getRange(1, 1, 1, headersD[0].length).setValues(headersD);
     styleHeader(sheetD, headersD[0].length);
+    sheetD.getRange(1, 1, 1, headersD[0].length).setValues(headersD);
   }
 }
 
@@ -581,6 +596,7 @@ function correggiEFormattaTuttiIFogli() {
     sheetC = ss.insertSheet(SHEET_CATALOGO);
   }
   const headersC = [["ID Materiale", "Categoria", "Nome Oggetto"]];
+  styleHeader(sheetC, headersC[0].length);
   const dataC = sheetC.getDataRange().getValues();
   if (dataC.length === 0 || (dataC.length === 1 && !dataC[0][0])) {
     sheetC.getRange(1, 1, 1, headersC[0].length).setValues(headersC);
@@ -588,7 +604,6 @@ function correggiEFormattaTuttiIFogli() {
   } else {
     sheetC.getRange(1, 1, 1, headersC[0].length).setValues(headersC);
   }
-  styleHeader(sheetC, headersC[0].length);
 
   // Mappa di consultazione Catalogo per arricchire i Dettagli con nome e categoria
   const catalogoMap = {};
@@ -685,11 +700,17 @@ function correggiEFormattaTuttiIFogli() {
 
   // Riscrittura pulita Foglio Prelievi
   sheetP.clear();
+  styleHeader(sheetP, officialHeadersP.length);
   sheetP.getRange(1, 1, 1, officialHeadersP.length).setValues([officialHeadersP]);
   if (rowsP.length > 0) {
+    if (sheetP.getMaxRows() < rowsP.length + 1) {
+      sheetP.insertRowsAfter(sheetP.getMaxRows(), (rowsP.length + 1) - sheetP.getMaxRows());
+    }
     sheetP.getRange(2, 1, rowsP.length, officialHeadersP.length).setValues(rowsP);
   }
-  styleHeader(sheetP, officialHeadersP.length);
+  try {
+    sheetP.autoResizeColumns(1, officialHeadersP.length);
+  } catch (e) {}
 
   // 3. Allinea e Riorganizza Foglio Dettagli
   let sheetD = ss.getSheetByName(SHEET_DETTAGLI);
@@ -761,11 +782,17 @@ function correggiEFormattaTuttiIFogli() {
 
   // Riscrittura pulita Foglio Dettagli
   sheetD.clear();
+  styleHeader(sheetD, officialHeadersD.length);
   sheetD.getRange(1, 1, 1, officialHeadersD.length).setValues([officialHeadersD]);
   if (rowsD.length > 0) {
+    if (sheetD.getMaxRows() < rowsD.length + 1) {
+      sheetD.insertRowsAfter(sheetD.getMaxRows(), (rowsD.length + 1) - sheetD.getMaxRows());
+    }
     sheetD.getRange(2, 1, rowsD.length, officialHeadersD.length).setValues(rowsD);
   }
-  styleHeader(sheetD, officialHeadersD.length);
+  try {
+    sheetD.autoResizeColumns(1, officialHeadersD.length);
+  } catch (e) {}
 
   try {
     SpreadsheetApp.getUi().alert(
@@ -825,13 +852,25 @@ function popolaCatalogoUfficiale(sheetC) {
     ["R_004", "Rilievo", "DistoX"],
     ["R_005", "Rilievo", "Taccuini"]
   ];
+  if (sheetC.getMaxColumns() < 3) {
+    sheetC.insertColumnsAfter(sheetC.getMaxColumns(), 3 - sheetC.getMaxColumns());
+  }
+  if (sheetC.getMaxRows() < catalogRows.length + 1) {
+    sheetC.insertRowsAfter(sheetC.getMaxRows(), (catalogRows.length + 1) - sheetC.getMaxRows());
+  }
   sheetC.getRange(2, 1, catalogRows.length, 3).setValues(catalogRows);
+  try {
+    sheetC.autoResizeColumns(1, 3);
+  } catch (e) {}
 }
 
 /**
  * Formatta graficamente l'intestazione della tabella (grigio scuro, testo bianco in grassetto, blocca riga 1)
  */
 function styleHeader(sheet, numColumns) {
+  if (sheet.getMaxColumns() < numColumns) {
+    sheet.insertColumnsAfter(sheet.getMaxColumns(), numColumns - sheet.getMaxColumns());
+  }
   const headerRange = sheet.getRange(1, 1, 1, numColumns);
   headerRange.setBackground("#37474F");
   headerRange.setFontColor("#FFFFFF");

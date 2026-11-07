@@ -41,6 +41,13 @@ class Prelievo {
     return !haIniziato;
   }
 
+  /// Numero di articoli con spunta rientro attiva
+  int get articoliSpuntatiCount =>
+      dettagli.where((d) => d.spuntaRientro).length;
+
+  /// Indica se la procedura di spunta/rientro è in corso (bozza salvata o spunta avviata)
+  bool get haSpuntaInCorso => !isModificabile && stato == StatoPrelievo.inAttesa;
+
   Prelievo copyWith({
     String? id,
     DateTime? dataPrelievo,

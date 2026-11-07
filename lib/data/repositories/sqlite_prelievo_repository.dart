@@ -184,6 +184,35 @@ class SqlitePrelievoRepository implements IPrelievoRepository {
   }
 
   @override
+  Future<void> salvaBozzaSpunta({
+    required String prelievoId,
+    required List<DettaglioPrelievo> dettagli,
+  }) async {
+    final db = await _dbHelper.database;
+    await db.transaction((txn) async {
+      for (final det in dettagli) {
+        await txn.update(
+          DatabaseHelper.tableDettagliPrelievo,
+          {
+            'spunta_rientro': det.spuntaRientro ? 1 : 0,
+            'qta_tornata': det.qtaTornata,
+            'note_rientro': det.noteRientro,
+            'is_synced': 0,
+          },
+          where: 'id_dettaglio = ?',
+          whereArgs: [det.idDettaglio],
+        );
+      }
+      await txn.update(
+        DatabaseHelper.tablePrelievi,
+        {'is_synced': 0},
+        where: 'id = ?',
+        whereArgs: [prelievoId],
+      );
+    });
+  }
+
+  @override
   Future<void> confirmRientro({
     required String prelievoId,
     required List<DettaglioPrelievo> dettagli,

@@ -18,6 +18,10 @@ abstract class IPrelievoRepository {
     int? qtaTornata,
     String? noteRientro,
   });
+  Future<void> salvaBozzaSpunta({
+    required String prelievoId,
+    required List<DettaglioPrelievo> dettagli,
+  });
   Future<void> confirmRientro({
     required String prelievoId,
     required List<DettaglioPrelievo> dettagli,
