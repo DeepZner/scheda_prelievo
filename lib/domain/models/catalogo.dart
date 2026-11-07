@@ -13,6 +13,36 @@ class Catalogo {
     required this.nomeOggetto,
   });
 
+  /// Indica se il materiale è una corda o materiale lineare misurato in metri (m)
+  bool get isMetri {
+    final catLower = categoria.toLowerCase().trim();
+    final nomeLower = nomeOggetto.toLowerCase().trim();
+    final idLower = idMateriale.toLowerCase().trim();
+
+    if (idLower == 'c_001' || idLower == 'c_002' || idLower == 'r_003') {
+      return true;
+    }
+    if (catLower == 'corde') {
+      // Sacchi e Guaine sono contati a pezzi
+      if (nomeLower.contains('sacch') || nomeLower.contains('guain')) {
+        return false;
+      }
+      return true;
+    }
+    if (nomeLower.contains('corda') ||
+        nomeLower.contains('corde') ||
+        nomeLower.contains('cordino') ||
+        nomeLower.contains('cordini') ||
+        nomeLower.contains('fettucci') ||
+        nomeLower.contains('spezzon')) {
+      return true;
+    }
+    return false;
+  }
+
+  /// Restituisce l'unità di misura ('m' per metri, 'pz' per pezzi)
+  String get unitaMisura => isMetri ? 'm' : 'pz';
+
   Catalogo copyWith({
     String? idMateriale,
     String? categoria,

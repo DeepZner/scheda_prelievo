@@ -29,9 +29,9 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
     buffer.writeln('\n📦 *Materiali:*');
     for (final d in p.dettagli) {
       final nome = d.nomeMateriale ?? d.materialeId;
-      buffer.write('• $nome: prelevati ${d.quantitaPrelevata} pz');
+      buffer.write('• $nome: prelevati ${d.quantitaPrelevata} ${d.unitaMisura}');
       if (d.spuntaRientro) {
-        buffer.write(' | rientrati ${d.qtaTornata ?? d.quantitaPrelevata} pz');
+        buffer.write(' | rientrati ${d.qtaTornata ?? d.quantitaPrelevata} ${d.unitaMisura}');
       }
       if (d.noteRientro != null && d.noteRientro!.isNotEmpty) {
         buffer.write(' (${d.noteRientro})');
@@ -134,10 +134,16 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
           }
 
           final isInAttesa = prelievo.stato == StatoPrelievo.inAttesa;
-          final totPrelevati = prelievo.dettagli.fold<int>(
-            0,
-            (sum, d) => sum + d.quantitaPrelevata,
-          );
+          final totPrelevatiMetri = prelievo.dettagli
+              .where((d) => d.isMetri)
+              .fold<int>(0, (sum, d) => sum + d.quantitaPrelevata);
+          final totPrelevatiPz = prelievo.dettagli
+              .where((d) => !d.isMetri)
+              .fold<int>(0, (sum, d) => sum + d.quantitaPrelevata);
+          final riepilogoMateriali = [
+            if (totPrelevatiMetri > 0) '$totPrelevatiMetri m corde',
+            if (totPrelevatiPz > 0) '$totPrelevatiPz pz',
+          ].join(' • ');
 
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -389,7 +395,7 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Materiali (${prelievo.dettagli.length} articoli, $totPrelevati pz)',
+                    'Materiali (${prelievo.dettagli.length} articoli${riepilogoMateriali.isNotEmpty ? ' • $riepilogoMateriali' : ''})',
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -455,12 +461,15 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
                                 Text(
-                                  'Prelevati: ${d.quantitaPrelevata} pz',
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                  'Prelevati: ${d.quantitaPrelevata} ${d.unitaMisura}',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: d.isMetri ? Colors.deepOrange.shade900 : null,
+                                  ),
                                 ),
                                 if (d.spuntaRientro)
                                   Text(
-                                    'Rientrati: ${d.qtaTornata ?? d.quantitaPrelevata} pz',
+                                    'Rientrati: ${d.qtaTornata ?? d.quantitaPrelevata} ${d.unitaMisura}',
                                     style: TextStyle(
                                       color: isParziale ? Colors.red : Colors.green.shade800,
                                       fontWeight: FontWeight.w600,

@@ -165,5 +165,70 @@ void main() {
         StatoPrelievo.annullato,
       );
     });
+
+    test('Unit of measure (m vs pz) on Catalogo and DettaglioPrelievo', () {
+      const corda = Catalogo(
+        idMateriale: 'C_001',
+        categoria: 'Corde',
+        nomeOggetto: 'Corde',
+      );
+      expect(corda.isMetri, isTrue);
+      expect(corda.unitaMisura, 'm');
+
+      const cordino = Catalogo(
+        idMateriale: 'C_002',
+        categoria: 'Corde',
+        nomeOggetto: 'Cordini',
+      );
+      expect(cordino.isMetri, isTrue);
+      expect(cordino.unitaMisura, 'm');
+
+      const sacco = Catalogo(
+        idMateriale: 'C_003',
+        categoria: 'Corde',
+        nomeOggetto: 'Sacchi da armo',
+      );
+      expect(sacco.isMetri, isFalse);
+      expect(sacco.unitaMisura, 'pz');
+
+      const fettuccia = Catalogo(
+        idMateriale: 'R_003',
+        categoria: 'Rilievo',
+        nomeOggetto: 'Rotella metrica e fettucce',
+      );
+      expect(fettuccia.isMetri, isTrue);
+      expect(fettuccia.unitaMisura, 'm');
+
+      const trapano = Catalogo(
+        idMateriale: 'T_001',
+        categoria: 'Trapano',
+        nomeOggetto: 'Trapano Hilti TE 4-A22',
+      );
+      expect(trapano.isMetri, isFalse);
+      expect(trapano.unitaMisura, 'pz');
+
+      // Test on DettaglioPrelievo
+      const detCorda = DettaglioPrelievo(
+        idDettaglio: 'd-1',
+        prelievoId: 'p-1',
+        materialeId: 'C_001',
+        nomeMateriale: 'Corde',
+        categoriaMateriale: 'Corde',
+        quantitaPrelevata: 50,
+      );
+      expect(detCorda.isMetri, isTrue);
+      expect(detCorda.unitaMisura, 'm');
+
+      const detMoschettone = DettaglioPrelievo(
+        idDettaglio: 'd-2',
+        prelievoId: 'p-1',
+        materialeId: 'A_001',
+        nomeMateriale: 'Moschettoni con ghiera',
+        categoriaMateriale: 'Armo',
+        quantitaPrelevata: 10,
+      );
+      expect(detMoschettone.isMetri, isFalse);
+      expect(detMoschettone.unitaMisura, 'pz');
+    });
   });
 }

@@ -144,6 +144,173 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
     }
   }
 
+  Future<int?> _mostraDialogSceltaMetri(
+    BuildContext context,
+    Catalogo materiale,
+    int initialValue,
+  ) async {
+    final controller = TextEditingController(text: '$initialValue');
+    final presets = [15, 20, 25, 30, 40, 50, 60, 70, 80, 100, 120];
+
+    return showDialog<int>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: Row(
+                children: [
+                  const Icon(Icons.straighten, color: Colors.deepOrange),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Lunghezza ${materiale.nomeOggetto}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Tocca una misura rapida o digita i metri:',
+                      style: TextStyle(fontSize: 13, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: controller,
+                      keyboardType: TextInputType.number,
+                      autofocus: true,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.deepOrange,
+                      ),
+                      decoration: InputDecoration(
+                        suffixText: 'metri (m)',
+                        suffixStyle: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.deepOrange,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      onSubmitted: (val) {
+                        final parsed = int.tryParse(val.trim());
+                        if (parsed != null && parsed > 0) {
+                          Navigator.pop(ctx, parsed);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Misure standard speleo:',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: presets.map((preset) {
+                        final isSelected =
+                            int.tryParse(controller.text) == preset;
+                        return ActionChip(
+                          avatar: isSelected
+                              ? const Icon(Icons.check,
+                                  size: 16, color: Colors.white)
+                              : null,
+                          backgroundColor: isSelected
+                              ? Colors.deepOrange
+                              : Colors.orange.shade50,
+                          label: Text(
+                            '$preset m',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: isSelected
+                                  ? Colors.white
+                                  : Colors.deepOrange.shade900,
+                            ),
+                          ),
+                          onPressed: () {
+                            Navigator.pop(ctx, preset);
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, null),
+                  child: const Text('Annulla'),
+                ),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.deepOrange,
+                  ),
+                  onPressed: () {
+                    final parsed = int.tryParse(controller.text.trim());
+                    if (parsed != null && parsed > 0) {
+                      Navigator.pop(ctx, parsed);
+                    }
+                  },
+                  child: const Text('Aggiungi'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _selezionaMaterialeConQuantita(
+    Catalogo materiale,
+    BuildContext bottomSheetContext,
+  ) async {
+    if (materiale.isMetri) {
+      final qtaIniziale =
+          _materialiScelti[materiale.idMateriale]?.quantita ?? 50;
+      final qtaScelta =
+          await _mostraDialogSceltaMetri(context, materiale, qtaIniziale);
+      if (qtaScelta != null && qtaScelta > 0) {
+        setState(() {
+          _materialiScelti[materiale.idMateriale] = _MaterialeSelezionato(
+            materiale: materiale,
+            quantita: qtaScelta,
+          );
+        });
+        if (bottomSheetContext.mounted) {
+          Navigator.pop(bottomSheetContext);
+        }
+      }
+    } else {
+      _aggiungiOIncrementaMateriale(materiale);
+      if (bottomSheetContext.mounted) {
+        Navigator.pop(bottomSheetContext);
+      }
+    }
+  }
+
   /// Mostra il BottomSheet di selezione dal catalogo SQLite
   Future<void> _mostraBottomSheetCatalogo() async {
     // Assicura il ricaricamento del catalogo aggiornato
@@ -305,8 +472,7 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
                                   child: InkWell(
                                     borderRadius: BorderRadius.circular(14),
                                     onTap: () {
-                                      _aggiungiOIncrementaMateriale(mat);
-                                      Navigator.pop(bottomSheetContext);
+                                      _selezionaMaterialeConQuantita(mat, bottomSheetContext);
                                     },
                                     child: Padding(
                                       padding: const EdgeInsets.symmetric(
@@ -321,7 +487,9 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
                                             height: 48,
                                             decoration: BoxDecoration(
                                               color: isGiaPresente
-                                                  ? Theme.of(itemContext).colorScheme.primary
+                                                  ? (mat.isMetri
+                                                      ? Colors.deepOrange
+                                                      : Theme.of(itemContext).colorScheme.primary)
                                                   : Theme.of(itemContext).colorScheme.surfaceContainerHighest,
                                               shape: BoxShape.circle,
                                             ),
@@ -350,11 +518,15 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
                                                 const SizedBox(height: 3),
                                                 Text(
                                                   isGiaPresente
-                                                      ? '${mat.categoria.toUpperCase()} • Quantità: $qtaSelezionata'
-                                                      : mat.categoria.toUpperCase(),
+                                                      ? '${mat.categoria.toUpperCase()} • $qtaSelezionata ${mat.unitaMisura}'
+                                                      : (mat.isMetri
+                                                          ? '${mat.categoria.toUpperCase()} (in metri)'
+                                                          : mat.categoria.toUpperCase()),
                                                   style: TextStyle(
                                                     color: isGiaPresente
-                                                        ? Theme.of(itemContext).colorScheme.primary
+                                                        ? (mat.isMetri
+                                                            ? Colors.deepOrange
+                                                            : Theme.of(itemContext).colorScheme.primary)
                                                         : Colors.grey.shade600,
                                                     fontSize: 12,
                                                     fontWeight: isGiaPresente
@@ -376,11 +548,17 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
                                                 isGiaPresente
                                                     ? Icons.add_circle
                                                     : Icons.add_circle_outline,
-                                                color: Theme.of(itemContext).colorScheme.primary,
+                                                color: mat.isMetri
+                                                    ? Colors.deepOrange
+                                                    : Theme.of(itemContext).colorScheme.primary,
                                               ),
                                               onPressed: () {
-                                                _aggiungiOIncrementaMateriale(mat);
-                                                setModalState(() {});
+                                                if (mat.isMetri) {
+                                                  _selezionaMaterialeConQuantita(mat, bottomSheetContext);
+                                                } else {
+                                                  _aggiungiOIncrementaMateriale(mat);
+                                                  setModalState(() {});
+                                                }
                                               },
                                             ),
                                           ),
@@ -699,32 +877,61 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
                     const SizedBox(height: 20),
 
                     // Intestazione Sezione Materiali
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Materiali da Prelevare (${_materialiScelti.length})',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        // Pulsante grande per aprire BottomSheet catalogo (min 48dp)
-                        FilledButton.tonalIcon(
-                          style: FilledButton.styleFrom(
-                            minimumSize: const Size(120, 48),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
+                    Builder(
+                      builder: (context) {
+                        final totMetri = _materialiScelti.values
+                            .where((item) => item.materiale.isMetri)
+                            .fold<int>(0, (sum, item) => sum + item.quantita);
+                        final totPezzi = _materialiScelti.values
+                            .where((item) => !item.materiale.isMetri)
+                            .fold<int>(0, (sum, item) => sum + item.quantita);
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Materiali (${_materialiScelti.length})',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                if (_materialiScelti.isNotEmpty)
+                                  Text(
+                                    [
+                                      if (totMetri > 0) '$totMetri m corde',
+                                      if (totPezzi > 0) '$totPezzi pz attrezz.',
+                                    ].join(' • '),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: totMetri > 0
+                                          ? Colors.deepOrange
+                                          : theme.colorScheme.primary,
+                                    ),
+                                  ),
+                              ],
                             ),
-                          ),
-                          onPressed: _mostraBottomSheetCatalogo,
-                          icon: const Icon(Icons.add_shopping_cart, size: 22),
-                          label: const Text(
-                            'Aggiungi',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
+                            // Pulsante grande per aprire BottomSheet catalogo (min 48dp)
+                            FilledButton.tonalIcon(
+                              style: FilledButton.styleFrom(
+                                minimumSize: const Size(120, 48),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                              ),
+                              onPressed: _mostraBottomSheetCatalogo,
+                              icon: const Icon(Icons.add_shopping_cart, size: 22),
+                              label: const Text(
+                                'Aggiungi',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                     const SizedBox(height: 12),
 
@@ -796,12 +1003,42 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
                                           fontSize: 15,
                                         ),
                                       ),
-                                      Text(
-                                        item.materiale.categoria,
-                                        style: TextStyle(
-                                          color: theme.colorScheme.primary,
-                                          fontSize: 12,
-                                        ),
+                                      Row(
+                                        children: [
+                                          Text(
+                                            item.materiale.categoria,
+                                            style: TextStyle(
+                                              color: item.materiale.isMetri
+                                                  ? Colors.deepOrange
+                                                  : theme.colorScheme.primary,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 1,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: item.materiale.isMetri
+                                                  ? Colors.deepOrange.shade50
+                                                  : theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: Text(
+                                              '${item.quantita} ${item.materiale.unitaMisura}',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                                color: item.materiale.isMetri
+                                                    ? Colors.deepOrange.shade900
+                                                    : theme.colorScheme.primary,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
@@ -810,6 +1047,9 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
                                 QuantityStepper(
                                   value: item.quantita,
                                   minValue: 1,
+                                  unit: item.materiale.unitaMisura,
+                                  isMetri: item.materiale.isMetri,
+                                  itemName: item.materiale.nomeOggetto,
                                   onChanged: (newVal) => _aggiornaQuantita(
                                     item.materiale.idMateriale,
                                     newVal,

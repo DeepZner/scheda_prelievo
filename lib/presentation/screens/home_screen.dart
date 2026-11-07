@@ -177,10 +177,16 @@ class _PrelievoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final totPezzi = prelievo.dettagli.fold<int>(
-      0,
-      (sum, d) => sum + d.quantitaPrelevata,
-    );
+    final totMetri = prelievo.dettagli
+        .where((d) => d.isMetri)
+        .fold<int>(0, (sum, d) => sum + d.quantitaPrelevata);
+    final totPezzi = prelievo.dettagli
+        .where((d) => !d.isMetri)
+        .fold<int>(0, (sum, d) => sum + d.quantitaPrelevata);
+    final infoMateriali = [
+      if (totMetri > 0) '$totMetri m corde',
+      if (totPezzi > 0) '$totPezzi pz attrezzature',
+    ].join(' • ');
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -272,10 +278,15 @@ class _PrelievoCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    '$totPezzi materiali prelevati',
-                    style: const TextStyle(
+                    infoMateriali.isNotEmpty
+                        ? infoMateriali
+                        : '${prelievo.dettagli.length} materiali',
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
+                      color: totMetri > 0
+                          ? Colors.deepOrange.shade900
+                          : Colors.grey.shade800,
                     ),
                   ),
                   Row(

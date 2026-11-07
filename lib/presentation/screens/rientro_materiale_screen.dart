@@ -479,8 +479,10 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
 
     bool tuttoRientrato = true;
     final List<DettaglioPrelievo> dettagliAggiornati = [];
-    int totPrelevati = 0;
-    int totRientrati = 0;
+    int totPrelevatiMetri = 0;
+    int totPrelevatiPz = 0;
+    int totRientratiMetri = 0;
+    int totRientratiPz = 0;
     final List<String> materialiMancanti = [];
 
     for (final d in widget.prelievo.dettagli) {
@@ -488,15 +490,20 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
       final qta = _qtaTornate[d.idDettaglio] ?? 0;
       final nota = _noteControllers[d.idDettaglio]?.text.trim();
 
-      totPrelevati += d.quantitaPrelevata;
       final qtaEffettiva = spuntato ? qta : 0;
-      totRientrati += qtaEffettiva;
+      if (d.isMetri) {
+        totPrelevatiMetri += d.quantitaPrelevata;
+        totRientratiMetri += qtaEffettiva;
+      } else {
+        totPrelevatiPz += d.quantitaPrelevata;
+        totRientratiPz += qtaEffettiva;
+      }
 
       if (!spuntato || qta < d.quantitaPrelevata) {
         tuttoRientrato = false;
         final nome = d.nomeMateriale ?? d.materialeId;
         final ammanco = d.quantitaPrelevata - qtaEffettiva;
-        materialiMancanti.add('$nome: mancanti $ammanco pz');
+        materialiMancanti.add('$nome: mancanti $ammanco ${d.unitaMisura}');
       }
 
       dettagliAggiornati.add(
@@ -508,6 +515,13 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
         ),
       );
     }
+
+    final riepilogoRientro = [
+      if (totPrelevatiMetri > 0)
+        'Corde: $totRientratiMetri/$totPrelevatiMetri m',
+      if (totPrelevatiPz > 0)
+        'Attrezzatura: $totRientratiPz/$totPrelevatiPz pz',
+    ].join(' • ');
 
     final nuovoStato =
         tuttoRientrato ? StatoPrelievo.rientrato : StatoPrelievo.mancante;
@@ -535,8 +549,7 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
       builder: (ctx) => _ConfermaRientroModalSheet(
         prelievo: widget.prelievo,
         tuttoRientrato: tuttoRientrato,
-        totRientrati: totRientrati,
-        totPrelevati: totPrelevati,
+        riepilogoRientro: riepilogoRientro,
         materialiMancanti: materialiMancanti,
         dateStr: dateStr,
         initialOperatore: ultimoOperatore,
@@ -753,9 +766,11 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    'Prelevati originariamente: ${d.quantitaPrelevata} pz',
+                                    'Prelevati originariamente: ${d.quantitaPrelevata} ${d.unitaMisura}',
                                     style: TextStyle(
-                                      color: theme.colorScheme.primary,
+                                      color: d.isMetri
+                                          ? Colors.deepOrange
+                                          : theme.colorScheme.primary,
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -772,9 +787,9 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
-                              'Q.tà Tornata:',
-                              style: TextStyle(
+                            Text(
+                              'Q.tà Tornata (${d.unitaMisura}):',
+                              style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
                               ),
@@ -783,6 +798,9 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
                               value: qtaTornata,
                               minValue: 0,
                               maxValue: d.quantitaPrelevata,
+                              unit: d.unitaMisura,
+                              isMetri: d.isMetri,
+                              itemName: d.nomeMateriale,
                               onChanged: (newVal) {
                                 setState(() {
                                   _qtaTornate[d.idDettaglio] = newVal;
@@ -805,9 +823,9 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
                           decoration: InputDecoration(
                             isDense: true,
                             labelText: isMancante
-                                ? 'Note rientro (Ammanco di ${d.quantitaPrelevata - qtaTornata} pz)'
+                                ? 'Note rientro (Ammanco di ${d.quantitaPrelevata - qtaTornata} ${d.unitaMisura})'
                                 : 'Note rientro / Condizioni (opzionale)',
-                            hintText: 'Es. 1 moschettone bloccato, corda integra',
+                            hintText: 'Es. 1 moschettone bloccato, corda tagliata/usurata',
                             prefixIcon: Icon(
                               isMancante
                                   ? Icons.warning_amber_rounded
@@ -933,8 +951,7 @@ class _ConfermaRientroResult {
 class _ConfermaRientroModalSheet extends StatefulWidget {
   final Prelievo prelievo;
   final bool tuttoRientrato;
-  final int totRientrati;
-  final int totPrelevati;
+  final String riepilogoRientro;
   final List<String> materialiMancanti;
   final String dateStr;
   final String initialOperatore;
@@ -943,8 +960,7 @@ class _ConfermaRientroModalSheet extends StatefulWidget {
   const _ConfermaRientroModalSheet({
     required this.prelievo,
     required this.tuttoRientrato,
-    required this.totRientrati,
-    required this.totPrelevati,
+    required this.riepilogoRientro,
     required this.materialiMancanti,
     required this.dateStr,
     required this.initialOperatore,
@@ -1067,7 +1083,7 @@ class _ConfermaRientroModalSheetState
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '📦 Materiali rientrati: ${widget.totRientrati} su ${widget.totPrelevati} pz',
+                      '📦 Rientro: ${widget.riepilogoRientro}',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
