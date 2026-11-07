@@ -24,7 +24,7 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
     );
     buffer.writeln('🏷️ Stato: ${p.stato.label}');
     if (p.parere != null && p.parere!.isNotEmpty) {
-      buffer.writeln('📝 Note / Parere: ${p.parere}');
+      buffer.writeln('📝 Note: ${p.parere}');
     }
     buffer.writeln('\n📦 *Materiali:*');
     for (final d in p.dettagli) {
@@ -273,7 +273,7 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
                       if (prelievo.parere != null && prelievo.parere!.isNotEmpty) ...[
                         const Divider(height: 24),
                         Text(
-                          'Note / Parere:',
+                          'Note:',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,

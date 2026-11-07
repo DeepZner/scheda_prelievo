@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../data/database/database_helper.dart';
+import '../providers/catalogo_provider.dart';
+import '../providers/prelievi_provider.dart';
 import '../providers/sync_provider.dart';
 
 class SyncStatusButton extends ConsumerWidget {
@@ -255,12 +258,88 @@ class SyncStatusButton extends ConsumerWidget {
                   },
                 ),
               ),
+              const SizedBox(height: 10),
+              // Pulsante per reinizializzare il database SQLite locale (reset and seed)
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: TextButton.icon(
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.red.shade700,
+                  ),
+                  icon: const Icon(Icons.delete_sweep_outlined),
+                  label: const Text(
+                    'REINIZIALIZZA DATABASE LOCALE',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  onPressed: () async {
+                    Navigator.pop(ctx);
+                    _confermaReinizializzazione(context, ref);
+                  },
+                ),
+              ),
               const SizedBox(height: 6),
             ],
           ),
         );
       },
     );
+  }
+
+  Future<void> _confermaReinizializzazione(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final confermato = await showDialog<bool>(
+      context: context,
+      builder: (dCtx) => AlertDialog(
+        title: Row(
+          children: const [
+            Icon(Icons.warning_amber_rounded, color: Colors.red, size: 28),
+            SizedBox(width: 8),
+            Text('Reinizializzare il DB?'),
+          ],
+        ),
+        content: const Text(
+          'Questa operazione azzererà tutte le schede prelievo salvate localmente '
+          'e ripopolerà il catalogo con i 40 materiali ufficiali del Speleo Club Roma.\n\n'
+          'Se hai schede non sincronizzate su Google Sheets, andranno perse.\n\n'
+          'Vuoi procedere?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dCtx, false),
+            child: const Text('Annulla'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(dCtx, true),
+            child: const Text('Reinizializza'),
+          ),
+        ],
+      ),
+    );
+
+    if (confermato == true) {
+      await DatabaseHelper.instance.resetAndSeed();
+      // Invalida tutti i provider per aggiornare immediatamente la UI
+      ref.invalidate(catalogoListProvider);
+      ref.invalidate(prelieviListProvider);
+      ref.invalidate(prelieviInAttesaProvider);
+      ref.invalidate(storicoRaggruppatoProvider);
+      ref.invalidate(pendingSyncCountProvider);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.indigo.shade800,
+            content: const Text(
+              'Database locale reinizializzato con successo! Catalogo ufficiale ripristinato.',
+            ),
+          ),
+        );
+      }
+    }
   }
 
   void _mostraDialogImpostazioniUrl(BuildContext context, WidgetRef ref) {

@@ -868,12 +868,12 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
                               ),
                             ),
                             const SizedBox(height: 16),
-                            // Campo Note / Parere (opzionale)
+                            // Campo Note (opzionale)
                             TextFormField(
                               controller: _parereController,
                               maxLines: 2,
                               decoration: InputDecoration(
-                                labelText: 'Note / Parere (opzionale)',
+                                labelText: 'Note (opzionale)',
                                 hintText: 'Es. Destinazione armo ramo nord',
                                 prefixIcon: const SizedBox(
                                   width: 48,
