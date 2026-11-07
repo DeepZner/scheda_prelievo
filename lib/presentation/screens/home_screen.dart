@@ -125,15 +125,18 @@ class _SpuntaRientroTab extends ConsumerWidget {
                       color: Colors.grey.shade600,
                     ),
                     const SizedBox(width: 6),
-                    Text(
-                      'Ordinamento discendente (più recenti in alto)',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.grey.shade600,
+                    Expanded(
+                      child: Text(
+                        'Ordinamento discendente (più recenti in alto)',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey.shade600,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const Spacer(),
+                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,

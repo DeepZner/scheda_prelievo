@@ -130,12 +130,14 @@ class _StoricoRaggruppatoViewState
                 children: [
                   Icon(Icons.sort_by_alpha, size: 16, color: Colors.grey.shade600),
                   const SizedBox(width: 6),
-                  Text(
-                    'Ordinamento ascendente raggruppato per stati (dal meno recente)',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.grey.shade600,
+                  Expanded(
+                    child: Text(
+                      'Ordinamento ascendente raggruppato per stati (dal meno recente)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey.shade600,
+                      ),
                     ),
                   ),
                 ],

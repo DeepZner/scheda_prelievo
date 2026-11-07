@@ -244,12 +244,14 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
                           children: [
                             const Icon(Icons.event_available, size: 18, color: Colors.green),
                             const SizedBox(width: 8),
-                            Text(
-                              'Riconsegnato: ${prelievo.dataRientro!.day.toString().padLeft(2, '0')}/${prelievo.dataRientro!.month.toString().padLeft(2, '0')}/${prelievo.dataRientro!.year} ${prelievo.dataRientro!.hour.toString().padLeft(2, '0')}:${prelievo.dataRientro!.minute.toString().padLeft(2, '0')}',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.green,
+                            Expanded(
+                              child: Text(
+                                'Riconsegnato: ${prelievo.dataRientro!.day.toString().padLeft(2, '0')}/${prelievo.dataRientro!.month.toString().padLeft(2, '0')}/${prelievo.dataRientro!.year} ${prelievo.dataRientro!.hour.toString().padLeft(2, '0')}:${prelievo.dataRientro!.minute.toString().padLeft(2, '0')}',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green,
+                                ),
                               ),
                             ),
                           ],

@@ -67,14 +67,17 @@ class PrelievoCard extends StatelessWidget {
                 children: [
                   const Icon(Icons.person, size: 18, color: Colors.grey),
                   const SizedBox(width: 6),
-                  Text(
-                    prelievo.responsabile,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
+                  Expanded(
+                    child: Text(
+                      prelievo.responsabile,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 8),
                   const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
                   const SizedBox(width: 6),
                   Text(
@@ -113,21 +116,27 @@ class PrelievoCard extends StatelessWidget {
                 ),
               ],
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Text(
-                    infoMateriali.isNotEmpty
-                        ? infoMateriali
-                        : '${prelievo.dettagli.length} materiali',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: totMetri > 0
-                          ? Colors.deepOrange.shade900
-                          : Colors.grey.shade800,
+                  Expanded(
+                    child: Text(
+                      infoMateriali.isNotEmpty
+                          ? infoMateriali
+                          : '${prelievo.dettagli.length} materiali',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: totMetri > 0
+                            ? Colors.deepOrange.shade900
+                            : Colors.grey.shade800,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  const SizedBox(width: 8),
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: const [
                       Text(
                         'Dettagli',
