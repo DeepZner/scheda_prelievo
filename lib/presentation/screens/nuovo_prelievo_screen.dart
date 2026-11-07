@@ -30,7 +30,7 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
 
   DateTime _dataPrelievo = DateTime.now();
 
-  // Mappa dei materiali selezionati: idMateriale -> {Catalogo, quantita}
+  // Mappa dei materiali selezionati: rigaId (UUID) -> _MaterialeSelezionato
   final Map<String, _MaterialeSelezionato> _materialiScelti = {};
 
   final _uuid = const Uuid();
@@ -90,7 +90,8 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
       _dataPrelievo = p.dataPrelievo;
       _materialiScelti.clear();
       for (final d in p.dettagli) {
-        _materialiScelti[d.materialeId] = _MaterialeSelezionato(
+        _materialiScelti[d.idDettaglio] = _MaterialeSelezionato(
+          rigaId: d.idDettaglio,
           materiale: Catalogo(
             idMateriale: d.materialeId,
             categoria: d.categoriaMateriale ?? '',
@@ -113,13 +114,18 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
 
   void _aggiungiOIncrementaMateriale(Catalogo materiale) {
     setState(() {
-      if (_materialiScelti.containsKey(materiale.idMateriale)) {
-        final current = _materialiScelti[materiale.idMateriale]!;
-        _materialiScelti[materiale.idMateriale] = current.copyWith(
-          quantita: current.quantita + 1,
+      final existingEntry = _materialiScelti.entries
+          .where((e) => e.value.materiale.idMateriale == materiale.idMateriale)
+          .firstOrNull;
+
+      if (existingEntry != null && !materiale.isMetri) {
+        _materialiScelti[existingEntry.key] = existingEntry.value.copyWith(
+          quantita: existingEntry.value.quantita + 1,
         );
       } else {
-        _materialiScelti[materiale.idMateriale] = _MaterialeSelezionato(
+        final newId = _uuid.v4();
+        _materialiScelti[newId] = _MaterialeSelezionato(
+          rigaId: newId,
           materiale: materiale,
           quantita: 1,
         );
@@ -127,19 +133,21 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
     });
   }
 
-  void _rimuoviMateriale(String idMateriale) {
+  void _rimuoviMateriale(String rigaId) {
     setState(() {
-      _materialiScelti.remove(idMateriale);
+      _materialiScelti.remove(rigaId);
     });
   }
 
-  void _aggiornaQuantita(String idMateriale, int nuovaQta) {
+  void _aggiornaQuantita(String rigaId, int nuovaQta) {
     if (nuovaQta <= 0) {
-      _rimuoviMateriale(idMateriale);
+      _rimuoviMateriale(rigaId);
     } else {
       setState(() {
-        final current = _materialiScelti[idMateriale]!;
-        _materialiScelti[idMateriale] = current.copyWith(quantita: nuovaQta);
+        final current = _materialiScelti[rigaId];
+        if (current != null) {
+          _materialiScelti[rigaId] = current.copyWith(quantita: nuovaQta);
+        }
       });
     }
   }
@@ -288,13 +296,13 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
     BuildContext bottomSheetContext,
   ) async {
     if (materiale.isMetri) {
-      final qtaIniziale =
-          _materialiScelti[materiale.idMateriale]?.quantita ?? 50;
       final qtaScelta =
-          await _mostraDialogSceltaMetri(context, materiale, qtaIniziale);
+          await _mostraDialogSceltaMetri(context, materiale, 50);
       if (qtaScelta != null && qtaScelta > 0) {
         setState(() {
-          _materialiScelti[materiale.idMateriale] = _MaterialeSelezionato(
+          final newId = _uuid.v4();
+          _materialiScelti[newId] = _MaterialeSelezionato(
+            rigaId: newId,
             materiale: materiale,
             quantita: qtaScelta,
           );
@@ -449,10 +457,13 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
                               itemCount: materialiFiltrati.length,
                               itemBuilder: (itemContext, index) {
                                 final mat = materialiFiltrati[index];
-                                final isGiaPresente =
-                                    _materialiScelti.containsKey(mat.idMateriale);
-                                final qtaSelezionata =
-                                    _materialiScelti[mat.idMateriale]?.quantita ?? 0;
+                                final matasseGiaScelte = _materialiScelti.values
+                                    .where((i) => i.materiale.idMateriale == mat.idMateriale)
+                                    .toList();
+                                final isGiaPresente = matasseGiaScelte.isNotEmpty;
+                                final qtaPezziNonMetri = (!mat.isMetri && isGiaPresente)
+                                    ? matasseGiaScelte.fold<int>(0, (s, i) => s + i.quantita)
+                                    : 0;
 
                                 return Card(
                                   elevation: 0.5,
@@ -464,7 +475,9 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
                                     borderRadius: BorderRadius.circular(14),
                                     side: BorderSide(
                                       color: isGiaPresente
-                                          ? Theme.of(itemContext).colorScheme.primary
+                                          ? (mat.isMetri
+                                              ? Colors.deepOrange
+                                              : Theme.of(itemContext).colorScheme.primary)
                                           : Colors.grey.shade300,
                                       width: isGiaPresente ? 1.5 : 1,
                                     ),
@@ -518,9 +531,11 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
                                                 const SizedBox(height: 3),
                                                 Text(
                                                   isGiaPresente
-                                                      ? '${mat.categoria.toUpperCase()} • $qtaSelezionata ${mat.unitaMisura}'
+                                                      ? (mat.isMetri
+                                                          ? '${mat.categoria.toUpperCase()} • ${matasseGiaScelte.length} ${matasseGiaScelte.length == 1 ? 'matassa inserita' : 'matasse inserite'} (${matasseGiaScelte.map((m) => '${m.quantita}m').join(', ')})'
+                                                          : '${mat.categoria.toUpperCase()} • $qtaPezziNonMetri ${mat.unitaMisura}')
                                                       : (mat.isMetri
-                                                          ? '${mat.categoria.toUpperCase()} (in metri)'
+                                                          ? '${mat.categoria.toUpperCase()} (tocca per aggiungere matassa)'
                                                           : mat.categoria.toUpperCase()),
                                                   style: TextStyle(
                                                     color: isGiaPresente
@@ -646,7 +661,7 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
     // Costruzione righe di dettaglio con is_synced = 0
     final List<DettaglioPrelievo> dettagli = _materialiScelti.values.map((item) {
       return DettaglioPrelievo(
-        idDettaglio: _uuid.v4(),
+        idDettaglio: (isEditing && item.rigaId.isNotEmpty) ? item.rigaId : _uuid.v4(),
         prelievoId: prelievoId,
         materialeId: item.materiale.idMateriale,
         quantitaPrelevata: item.quantita,
@@ -978,6 +993,13 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
                       )
                     else
                       ..._materialiScelti.values.map((item) {
+                        final omologhi = _materialiScelti.values
+                            .where((i) => i.materiale.idMateriale == item.materiale.idMateriale)
+                            .toList();
+                        final String nomeMostrato = (item.materiale.isMetri && omologhi.length > 1)
+                            ? '${item.materiale.nomeOggetto} #${omologhi.indexOf(item) + 1}'
+                            : item.materiale.nomeOggetto;
+
                         return Card(
                           margin: const EdgeInsets.only(bottom: 10),
                           shape: RoundedRectangleBorder(
@@ -1004,7 +1026,7 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        item.materiale.nomeOggetto,
+                                        nomeMostrato,
                                         style: const TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 15,
@@ -1056,9 +1078,9 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
                                   minValue: 1,
                                   unit: item.materiale.unitaMisura,
                                   isMetri: item.materiale.isMetri,
-                                  itemName: item.materiale.nomeOggetto,
+                                  itemName: nomeMostrato,
                                   onChanged: (newVal) => _aggiornaQuantita(
-                                    item.materiale.idMateriale,
+                                    item.rigaId,
                                     newVal,
                                   ),
                                 ),
@@ -1074,7 +1096,7 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
                                       size: 24,
                                     ),
                                     onPressed: () => _rimuoviMateriale(
-                                      item.materiale.idMateriale,
+                                      item.rigaId,
                                     ),
                                   ),
                                 ),
@@ -1168,21 +1190,28 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
 }
 
 class _MaterialeSelezionato {
+  final String rigaId;
   final Catalogo materiale;
   final int quantita;
 
   _MaterialeSelezionato({
+    required this.rigaId,
     required this.materiale,
     required this.quantita,
   });
 
   _MaterialeSelezionato copyWith({
+    String? rigaId,
     Catalogo? materiale,
     int? quantita,
   }) {
     return _MaterialeSelezionato(
+      rigaId: rigaId ?? this.rigaId,
       materiale: materiale ?? this.materiale,
       quantita: quantita ?? this.quantita,
     );
   }
+
+  /// Ogni inserimento di corda in metri equivale ad 1 singolo pezzo (matassa di corda)
+  int get numeroPezzi => materiale.isMetri ? 1 : quantita;
 }
