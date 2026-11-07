@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../domain/models/prelievo.dart';
 import '../../domain/models/stato_prelievo.dart';
 import '../providers/prelievi_provider.dart';
+import '../providers/sync_provider.dart';
 import '../widgets/stato_badge.dart';
 
 class DettaglioPrelievoScreen extends ConsumerWidget {
@@ -50,19 +51,19 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
     final confermato = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Eliminare questo prelievo?'),
+        title: const Text('Annullare questa scheda prelievo?'),
         content: const Text(
-          'L\'operazione eliminerà definitivamente la scheda e tutti i suoi dettagli dal database locale.',
+          'La scheda verrà contrassegnata come "Annullato" (cancellazione logica). Rimarrà tracciata nello storico e lo stato verrà sincronizzato sul foglio Google Sheets.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Annulla'),
+            child: const Text('Indietro'),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Elimina'),
+            child: const Text('Annulla Scheda'),
           ),
         ],
       ),
@@ -70,9 +71,14 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
 
     if (confermato == true) {
       await ref.read(prelieviControllerProvider.notifier).eliminaPrelievo(prelievoId);
+      try {
+        await ref.read(syncControllerProvider.notifier).sincronizza();
+      } catch (_) {}
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Prelievo eliminato.')),
+          const SnackBar(
+            content: Text('Scheda contrassegnata come Annullata (cancellazione logica).'),
+          ),
         );
         context.pop();
       }
@@ -109,10 +115,15 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
                 : const SizedBox.shrink(),
             orElse: () => const SizedBox.shrink(),
           ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-            tooltip: 'Elimina prelievo',
-            onPressed: () => _confermaEliminazione(context, ref),
+          prelievoAsync.maybeWhen(
+            data: (p) => p != null && p.stato != StatoPrelievo.annullato
+                ? IconButton(
+                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                    tooltip: 'Annulla scheda prelievo (cancellazione logica)',
+                    onPressed: () => _confermaEliminazione(context, ref),
+                  )
+                : const SizedBox.shrink(),
+            orElse: () => const SizedBox.shrink(),
           ),
         ],
       ),
@@ -273,6 +284,36 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 16),
+
+              if (prelievo.stato == StatoPrelievo.annullato) ...[
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade400),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.cancel_outlined,
+                          color: Colors.grey.shade800, size: 24),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Questa scheda di prelievo è stata annullata. Rimane archiviata nello storico e sul foglio Google Sheets.',
+                          style: TextStyle(
+                            color: Colors.black87,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
 
               if (isInAttesa) ...[
                 if (prelievo.isModificabile) ...[

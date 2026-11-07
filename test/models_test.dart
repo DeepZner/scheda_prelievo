@@ -130,6 +130,13 @@ void main() {
       );
       expect(prelChiuso.isModificabile, isFalse);
       expect(prelChiuso.haSpuntaInCorso, isFalse);
+
+      // 6. Scheda annullata (cancellazione logica) -> NON modificabile e NON in corso
+      final prelAnnullato = prelModificabile.copyWith(
+        stato: StatoPrelievo.annullato,
+      );
+      expect(prelAnnullato.isModificabile, isFalse);
+      expect(prelAnnullato.haSpuntaInCorso, isFalse);
     });
 
     test('StatoPrelievo enum conversion', () {
@@ -144,6 +151,18 @@ void main() {
       expect(
         StatoPrelievo.fromString('Materiale mancante'),
         StatoPrelievo.mancante,
+      );
+      expect(
+        StatoPrelievo.fromString('Annullato'),
+        StatoPrelievo.annullato,
+      );
+      expect(
+        StatoPrelievo.fromString('Cancellato'),
+        StatoPrelievo.annullato,
+      );
+      expect(
+        StatoPrelievo.fromString('Eliminato'),
+        StatoPrelievo.annullato,
       );
     });
   });

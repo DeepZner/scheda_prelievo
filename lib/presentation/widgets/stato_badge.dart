@@ -28,6 +28,11 @@ class StatoBadge extends StatelessWidget {
         fg = Colors.red.shade900;
         icon = Icons.warning_rounded;
         break;
+      case StatoPrelievo.annullato:
+        bg = Colors.grey.shade200;
+        fg = Colors.grey.shade800;
+        icon = Icons.cancel_outlined;
+        break;
     }
 
     return Container(

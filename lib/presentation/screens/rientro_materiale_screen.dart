@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../data/database/database_helper.dart';
 import '../../domain/models/dettaglio_prelievo.dart';
@@ -299,6 +300,7 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
   late Map<String, TextEditingController> _noteControllers;
   final Map<String, Timer?> _debounceTimers = {};
   bool _isSaving = false;
+  bool _isConcluso = false;
 
   @override
   void initState() {
@@ -324,27 +326,33 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.prelievo.id != widget.prelievo.id) {
       _flushDebounceTimers();
-      _disposeControllers();
+      final oldControllers =
+          List<TextEditingController>.from(_noteControllers.values);
       _initValues();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        for (final c in oldControllers) {
+          c.dispose();
+        }
+      });
     }
   }
 
   @override
   void dispose() {
     _flushDebounceTimers();
-    _disposeControllers();
-    super.dispose();
-  }
-
-  void _disposeControllers() {
+    final oldControllers =
+        List<TextEditingController>.from(_noteControllers.values);
+    _noteControllers.clear();
     for (final timer in _debounceTimers.values) {
       timer?.cancel();
     }
     _debounceTimers.clear();
-    for (final controller in _noteControllers.values) {
-      controller.dispose();
-    }
-    _noteControllers.clear();
+    super.dispose();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final c in oldControllers) {
+        c.dispose();
+      }
+    });
   }
 
   void _flushDebounceTimers() {
@@ -368,7 +376,7 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
   }
 
   Future<void> salvaLavoroInCorso({bool mostraFeedback = true}) async {
-    if (_isSaving) return;
+    if (_isSaving || _isConcluso) return;
     _isSaving = true;
 
     try {
@@ -514,242 +522,32 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
 
     if (!mounted) return;
 
-    final operatoreController = TextEditingController(text: ultimoOperatore);
-    final magazzinieriController = TextEditingController(text: defaultMagazzino);
-    final formKey = GlobalKey<FormState>();
-
     final dateStr =
         '${timestampConclusione.day.toString().padLeft(2, '0')}/${timestampConclusione.month.toString().padLeft(2, '0')}/${timestampConclusione.year} ${timestampConclusione.hour.toString().padLeft(2, '0')}:${timestampConclusione.minute.toString().padLeft(2, '0')}:${timestampConclusione.second.toString().padLeft(2, '0')}';
 
-    final confermato = await showModalBottomSheet<bool>(
+    final result = await showModalBottomSheet<_ConfermaRientroResult>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 20,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
-          ),
-          child: SingleChildScrollView(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade400,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Icon(
-                        tuttoRientrato
-                            ? Icons.check_circle_rounded
-                            : Icons.warning_amber_rounded,
-                        color: tuttoRientrato ? Colors.green : Colors.orange.shade800,
-                        size: 28,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          tuttoRientrato
-                              ? 'Conferma Rientro Completo'
-                              : 'Conferma Rientro con Ammanchi',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Box Timestamp e Dati Scheda
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.access_time_filled, size: 18, color: Colors.indigo),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Timestamp chiusura: $dateStr',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          '📍 ${widget.prelievo.luogoGrotta} • 👤 ${widget.prelievo.responsabile}',
-                          style: const TextStyle(fontSize: 13, color: Colors.black87),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '📦 Materiali rientrati: $totRientrati su $totPrelevati pz',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: tuttoRientrato ? Colors.green.shade800 : Colors.deepOrange,
-                          ),
-                        ),
-                        if (materialiMancanti.isNotEmpty) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            'Ammanchi segnalati:',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.red.shade800,
-                            ),
-                          ),
-                          ...materialiMancanti.map(
-                            (m) => Text(
-                              '• $m',
-                              style: TextStyle(fontSize: 12, color: Colors.red.shade900),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Campo Operatore
-                  TextFormField(
-                    controller: operatoreController,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: InputDecoration(
-                      labelText: 'Operatore spunta (Email notifica)*',
-                      hintText: 'es. nome.cognome@speleoclubroma.org',
-                      prefixIcon: const Icon(Icons.person_pin_rounded),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    validator: (v) {
-                      if (v == null || v.trim().isEmpty) {
-                        return 'Inserisci la tua email o identificativo operatore';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Campo Email Magazzinieri (CC)
-                  TextFormField(
-                    controller: magazzinieriController,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: InputDecoration(
-                      labelText: 'Email Magazzinieri (in Copia Conoscenza)',
-                      hintText: 'magazzino@speleoclubroma.org',
-                      prefixIcon: const Icon(Icons.mark_email_read_rounded),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-
-                  Row(
-                    children: [
-                      const Icon(Icons.info_outline, size: 16, color: Colors.grey),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          'La notifica email di riepilogo verrà inviata tramite Google Apps Script alla sincronizzazione.',
-                          style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Pulsanti Azione (Touch target ergonomici)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size.fromHeight(50),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                          ),
-                          onPressed: () => Navigator.pop(ctx, false),
-                          child: const Text('Annulla'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        flex: 2,
-                        child: FilledButton.icon(
-                          style: FilledButton.styleFrom(
-                            minimumSize: const Size.fromHeight(50),
-                            backgroundColor: tuttoRientrato
-                                ? Colors.green.shade800
-                                : Colors.deepOrange.shade800,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                          ),
-                          onPressed: () {
-                            if (formKey.currentState!.validate()) {
-                              Navigator.pop(ctx, true);
-                            }
-                          },
-                          icon: const Icon(Icons.done_all, size: 22),
-                          label: const Text(
-                            'CONFERMA E ARCHIVIA',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
+      builder: (ctx) => _ConfermaRientroModalSheet(
+        prelievo: widget.prelievo,
+        tuttoRientrato: tuttoRientrato,
+        totRientrati: totRientrati,
+        totPrelevati: totPrelevati,
+        materialiMancanti: materialiMancanti,
+        dateStr: dateStr,
+        initialOperatore: ultimoOperatore,
+        initialMagazzinieri: defaultMagazzino,
+      ),
     );
 
-    if (confermato != true) {
-      operatoreController.dispose();
-      magazzinieriController.dispose();
-      return;
-    }
+    if (result == null) return;
 
-    final operatoreEmail = operatoreController.text.trim();
-    final magazzinieriEmail = magazzinieriController.text.trim();
-    operatoreController.dispose();
-    magazzinieriController.dispose();
+    final operatoreEmail = result.operatoreEmail;
+    final magazzinieriEmail = result.magazzinieriEmail;
 
     // Salva impostazioni per i prossimi rientri
     await DatabaseHelper.instance.setSetting(
@@ -763,6 +561,7 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
       );
     }
 
+    _isConcluso = true;
     await ref.read(prelieviControllerProvider.notifier).confermaRiconsegna(
           prelievoId: widget.prelievo.id,
           dettagli: dettagliAggiornati,
@@ -785,6 +584,12 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
           ),
         ),
       );
+
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/');
+      }
     }
   }
 
@@ -1111,6 +916,294 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ConfermaRientroResult {
+  final String operatoreEmail;
+  final String magazzinieriEmail;
+
+  const _ConfermaRientroResult({
+    required this.operatoreEmail,
+    required this.magazzinieriEmail,
+  });
+}
+
+class _ConfermaRientroModalSheet extends StatefulWidget {
+  final Prelievo prelievo;
+  final bool tuttoRientrato;
+  final int totRientrati;
+  final int totPrelevati;
+  final List<String> materialiMancanti;
+  final String dateStr;
+  final String initialOperatore;
+  final String initialMagazzinieri;
+
+  const _ConfermaRientroModalSheet({
+    required this.prelievo,
+    required this.tuttoRientrato,
+    required this.totRientrati,
+    required this.totPrelevati,
+    required this.materialiMancanti,
+    required this.dateStr,
+    required this.initialOperatore,
+    required this.initialMagazzinieri,
+  });
+
+  @override
+  State<_ConfermaRientroModalSheet> createState() =>
+      _ConfermaRientroModalSheetState();
+}
+
+class _ConfermaRientroModalSheetState
+    extends State<_ConfermaRientroModalSheet> {
+  late final TextEditingController _operatoreController;
+  late final TextEditingController _magazzinieriController;
+  final _formKey = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    super.initState();
+    _operatoreController =
+        TextEditingController(text: widget.initialOperatore);
+    _magazzinieriController =
+        TextEditingController(text: widget.initialMagazzinieri);
+  }
+
+  @override
+  void dispose() {
+    _operatoreController.dispose();
+    _magazzinieriController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ctx = context;
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 20,
+        bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+      ),
+      child: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade400,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Icon(
+                    widget.tuttoRientrato
+                        ? Icons.check_circle_rounded
+                        : Icons.warning_amber_rounded,
+                    color: widget.tuttoRientrato
+                        ? Colors.green
+                        : Colors.orange.shade800,
+                    size: 28,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      widget.tuttoRientrato
+                          ? 'Conferma Rientro Completo'
+                          : 'Conferma Rientro con Ammanchi',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Box Timestamp e Dati Scheda
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.access_time_filled,
+                            size: 18, color: Colors.indigo),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Timestamp chiusura: ${widget.dateStr}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '📍 ${widget.prelievo.luogoGrotta} • 👤 ${widget.prelievo.responsabile}',
+                      style: const TextStyle(
+                          fontSize: 13, color: Colors.black87),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '📦 Materiali rientrati: ${widget.totRientrati} su ${widget.totPrelevati} pz',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: widget.tuttoRientrato
+                            ? Colors.green.shade800
+                            : Colors.deepOrange,
+                      ),
+                    ),
+                    if (widget.materialiMancanti.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        'Ammanchi segnalati:',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.red.shade800,
+                        ),
+                      ),
+                      ...widget.materialiMancanti.map(
+                        (m) => Text(
+                          '• $m',
+                          style: TextStyle(
+                              fontSize: 12, color: Colors.red.shade900),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Campo Operatore
+              TextFormField(
+                controller: _operatoreController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: InputDecoration(
+                  labelText: 'Operatore spunta (Email notifica)*',
+                  hintText: 'es. nome.cognome@speleoclubroma.org',
+                  prefixIcon: const Icon(Icons.person_pin_rounded),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) {
+                    return 'Inserisci la tua email o identificativo operatore';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+
+              // Campo Email Magazzinieri (CC)
+              TextFormField(
+                controller: _magazzinieriController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: InputDecoration(
+                  labelText: 'Email Magazzinieri (in Copia Conoscenza)',
+                  hintText: 'magazzino@speleoclubroma.org',
+                  prefixIcon: const Icon(Icons.mark_email_read_rounded),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              Row(
+                children: [
+                  const Icon(Icons.info_outline,
+                      size: 16, color: Colors.grey),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'La notifica email di riepilogo verrà inviata tramite Google Apps Script alla sincronizzazione.',
+                      style:
+                          TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // Pulsanti Azione (Touch target ergonomici)
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(50),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      onPressed: () => Navigator.pop(ctx, null),
+                      child: const Text('Annulla'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size.fromHeight(50),
+                        backgroundColor: widget.tuttoRientrato
+                            ? Colors.green.shade800
+                            : Colors.deepOrange.shade800,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      onPressed: () {
+                        if (_formKey.currentState!.validate()) {
+                          Navigator.pop(
+                            ctx,
+                            _ConfermaRientroResult(
+                              operatoreEmail: _operatoreController.text.trim(),
+                              magazzinieriEmail:
+                                  _magazzinieriController.text.trim(),
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.done_all, size: 22),
+                      label: const Text(
+                        'CONFERMA E ARCHIVIA',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

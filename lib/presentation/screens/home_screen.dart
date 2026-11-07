@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../domain/models/prelievo.dart';
+import '../../domain/models/stato_prelievo.dart';
 import '../providers/prelievi_provider.dart';
 import '../widgets/stato_badge.dart';
 import '../widgets/sync_status_button.dart';
@@ -201,9 +202,16 @@ class _PrelievoCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       prelievo.luogoGrotta,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
+                        decoration:
+                            prelievo.stato == StatoPrelievo.annullato
+                                ? TextDecoration.lineThrough
+                                : null,
+                        color: prelievo.stato == StatoPrelievo.annullato
+                            ? Colors.grey.shade600
+                            : null,
                       ),
                     ),
                   ),

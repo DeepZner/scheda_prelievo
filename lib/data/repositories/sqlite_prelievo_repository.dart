@@ -135,14 +135,21 @@ class SqlitePrelievoRepository implements IPrelievoRepository {
   Future<void> deletePrelievo(String id) async {
     final db = await _dbHelper.database;
     await db.transaction((txn) async {
-      await txn.delete(
-        DatabaseHelper.tableDettagliPrelievo,
-        where: 'prelievo_id = ?',
+      await txn.update(
+        DatabaseHelper.tablePrelievi,
+        {
+          'stato': StatoPrelievo.annullato.label,
+          'is_synced': 0,
+        },
+        where: 'id = ?',
         whereArgs: [id],
       );
-      await txn.delete(
-        DatabaseHelper.tablePrelievi,
-        where: 'id = ?',
+      await txn.update(
+        DatabaseHelper.tableDettagliPrelievo,
+        {
+          'is_synced': 0,
+        },
+        where: 'prelievo_id = ?',
         whereArgs: [id],
       );
     });
