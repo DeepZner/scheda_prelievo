@@ -198,5 +198,20 @@ void main() {
       expect(result.dettagli.first.idDettaglio, 'D_TEST_01');
       expect(result.dettagli.first.quantitaPrelevata, 3);
     });
+
+    test('sanitizeUrl cleanly strips whitespace, quotes and linebreaks', () {
+      expect(
+        GoogleSheetsClient.sanitizeUrl('  "https://script.google.com/macros/s/xyz/exec"  '),
+        'https://script.google.com/macros/s/xyz/exec',
+      );
+      expect(
+        GoogleSheetsClient.sanitizeUrl("  'https://script.google.com/macros/s/xyz/exec \n'  "),
+        'https://script.google.com/macros/s/xyz/exec',
+      );
+      expect(
+        GoogleSheetsClient.sanitizeUrl('https://script.google.com/ macros/s/xyz/exec\r\n'),
+        'https://script.google.com/macros/s/xyz/exec',
+      );
+    });
   });
 }

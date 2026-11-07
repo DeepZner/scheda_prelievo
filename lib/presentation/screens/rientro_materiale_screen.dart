@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../data/database/database_helper.dart';
 import '../../domain/models/dettaglio_prelievo.dart';
@@ -44,7 +43,10 @@ class _RientroMaterialeScreenState
     return PopScope(
       canPop: true,
       onPopInvokedWithResult: (didPop, _) {
-        _dettagliKey.currentState?.salvaLavoroInCorso(mostraFeedback: false);
+        final state = _dettagliKey.currentState;
+        if (state != null && !state.isConcluso) {
+          state.salvaLavoroInCorso(mostraFeedback: false);
+        }
       },
       child: Scaffold(
         appBar: AppBar(
@@ -54,8 +56,10 @@ class _RientroMaterialeScreenState
             icon: const Icon(Icons.arrow_back),
             tooltip: 'Torna indietro (salva)',
             onPressed: () async {
-              await _dettagliKey.currentState
-                  ?.salvaLavoroInCorso(mostraFeedback: false);
+              final state = _dettagliKey.currentState;
+              if (state != null && !state.isConcluso) {
+                await state.salvaLavoroInCorso(mostraFeedback: false);
+              }
               if (context.mounted) {
                 Navigator.of(context).maybePop();
               }
@@ -66,8 +70,10 @@ class _RientroMaterialeScreenState
               icon: const Icon(Icons.save_outlined),
               tooltip: 'Salva lavoro in corso',
               onPressed: () {
-                _dettagliKey.currentState
-                    ?.salvaLavoroInCorso(mostraFeedback: true);
+                final state = _dettagliKey.currentState;
+                if (state != null && !state.isConcluso) {
+                  state.salvaLavoroInCorso(mostraFeedback: true);
+                }
               },
             ),
           ],
@@ -300,10 +306,12 @@ class _DettagliListView extends ConsumerStatefulWidget {
 class _DettagliListViewState extends ConsumerState<_DettagliListView> {
   late Map<String, bool> _spunte;
   late Map<String, int> _qtaTornate;
-  late Map<String, TextEditingController> _noteControllers;
+  late Map<String, String> _noteTexts;
   final Map<String, Timer?> _debounceTimers = {};
   bool _isSaving = false;
   bool _isConcluso = false;
+
+  bool get isConcluso => _isConcluso;
 
   @override
   void initState() {
@@ -314,13 +322,12 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
   void _initValues() {
     _spunte = {};
     _qtaTornate = {};
-    _noteControllers = {};
+    _noteTexts = {};
 
     for (final d in widget.prelievo.dettagli) {
       _spunte[d.idDettaglio] = d.spuntaRientro;
       _qtaTornate[d.idDettaglio] = d.qtaTornata ?? d.quantitaPrelevata;
-      _noteControllers[d.idDettaglio] =
-          TextEditingController(text: d.noteRientro ?? '');
+      _noteTexts[d.idDettaglio] = d.noteRientro ?? '';
     }
   }
 
@@ -329,33 +336,17 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.prelievo.id != widget.prelievo.id) {
       _flushDebounceTimers();
-      final oldControllers =
-          List<TextEditingController>.from(_noteControllers.values);
       _initValues();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        for (final c in oldControllers) {
-          c.dispose();
-        }
-      });
     }
   }
 
   @override
   void dispose() {
-    _flushDebounceTimers();
-    final oldControllers =
-        List<TextEditingController>.from(_noteControllers.values);
-    _noteControllers.clear();
     for (final timer in _debounceTimers.values) {
       timer?.cancel();
     }
     _debounceTimers.clear();
     super.dispose();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      for (final c in oldControllers) {
-        c.dispose();
-      }
-    });
   }
 
   void _flushDebounceTimers() {
@@ -363,7 +354,7 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
       if (entry.value?.isActive ?? false) {
         entry.value!.cancel();
         final idDettaglio = entry.key;
-        final note = _noteControllers[idDettaglio]?.text ?? '';
+        final note = _noteTexts[idDettaglio] ?? '';
         final spunta = _spunte[idDettaglio] ?? false;
         final qta = _qtaTornate[idDettaglio] ?? 0;
         ref.read(prelieviControllerProvider.notifier).aggiornaDettaglioRientro(
@@ -379,7 +370,7 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
   }
 
   Future<void> salvaLavoroInCorso({bool mostraFeedback = true}) async {
-    if (_isSaving || _isConcluso) return;
+    if (_isSaving || _isConcluso || !mounted) return;
     _isSaving = true;
 
     try {
@@ -389,7 +380,7 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
       for (final d in widget.prelievo.dettagli) {
         final spuntato = _spunte[d.idDettaglio] ?? false;
         final qta = _qtaTornate[d.idDettaglio] ?? d.quantitaPrelevata;
-        final nota = _noteControllers[d.idDettaglio]?.text.trim();
+        final nota = _noteTexts[d.idDettaglio]?.trim();
         final notaPulita = (nota == null || nota.isEmpty) ? null : nota;
 
         dettagliAggiornati.add(
@@ -449,6 +440,7 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
     required int qtaTornata,
     required String note,
   }) async {
+    _noteTexts[idDettaglio] = note;
     final notaPulita = note.trim().isEmpty ? null : note.trim();
     await ref.read(prelieviControllerProvider.notifier).aggiornaDettaglioRientro(
           idDettaglio: idDettaglio,
@@ -491,7 +483,7 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
     for (final d in widget.prelievo.dettagli) {
       final spuntato = _spunte[d.idDettaglio] ?? false;
       final qta = _qtaTornate[d.idDettaglio] ?? 0;
-      final nota = _noteControllers[d.idDettaglio]?.text.trim();
+      final nota = _noteTexts[d.idDettaglio]?.trim();
 
       final qtaEffettiva = spuntato ? qta : 0;
       if (d.isMetri) {
@@ -577,7 +569,17 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
       );
     }
 
+    if (!mounted) return;
+
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+
     _isConcluso = true;
+    for (final timer in _debounceTimers.values) {
+      timer?.cancel();
+    }
+    _debounceTimers.clear();
+
     await ref.read(prelieviControllerProvider.notifier).confermaRiconsegna(
           prelievoId: widget.prelievo.id,
           dettagli: dettagliAggiornati,
@@ -587,25 +589,21 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
           emailMagazzinieri: magazzinieriEmail.isEmpty ? null : magazzinieriEmail,
         );
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor:
-              tuttoRientrato ? Colors.green.shade800 : Colors.orange.shade900,
-          content: Text(
-            tuttoRientrato
-                ? 'Rientro concluso alle $dateStr da $operatoreEmail: tutto presente!'
-                : 'Rientro archiviato alle $dateStr con MATERIALE MANCANTE.',
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
+    messenger.showSnackBar(
+      SnackBar(
+        backgroundColor:
+            tuttoRientrato ? Colors.green.shade800 : Colors.orange.shade900,
+        content: Text(
+          tuttoRientrato
+              ? 'Rientro concluso alle $dateStr da $operatoreEmail: tutto presente!'
+              : 'Rientro archiviato alle $dateStr con MATERIALE MANCANTE.',
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-      );
+      ),
+    );
 
-      if (context.canPop()) {
-        context.pop();
-      } else {
-        context.go('/');
-      }
+    if (navigator.canPop()) {
+      navigator.pop();
     }
   }
 
@@ -689,173 +687,52 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
               final d = dettagli[index];
               final isSpuntato = _spunte[d.idDettaglio] ?? false;
               final qtaTornata = _qtaTornate[d.idDettaglio] ?? d.quantitaPrelevata;
-              final controllerNota = _noteControllers[d.idDettaglio]!;
-              final isMancante = isSpuntato && qtaTornata < d.quantitaPrelevata;
+              final currentNote = _noteTexts[d.idDettaglio] ?? '';
 
-              return Card(
-                margin: const EdgeInsets.only(bottom: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(
-                    color: isSpuntato
-                        ? (isMancante
-                            ? Colors.orange.shade800
-                            : Colors.green.shade600)
-                        : Colors.grey.shade300,
-                    width: isSpuntato ? 2.5 : 1,
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          SizedBox(
-                            width: 52,
-                            height: 48,
-                            child: Switch(
-                              value: isSpuntato,
-                              activeTrackColor: Colors.green.shade700,
-                              onChanged: (val) {
-                                setState(() {
-                                  _spunte[d.idDettaglio] = val;
-                                  if (val && _qtaTornate[d.idDettaglio] == 0) {
-                                    _qtaTornate[d.idDettaglio] =
-                                        d.quantitaPrelevata;
-                                  }
-                                });
-                                _aggiornaRigaImmediatamente(
-                                  idDettaglio: d.idDettaglio,
-                                  spunta: val,
-                                  qtaTornata: _qtaTornate[d.idDettaglio]!,
-                                  note: controllerNota.text,
-                                );
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(8),
-                              onTap: () {
-                                final nuovoVal = !isSpuntato;
-                                setState(() {
-                                  _spunte[d.idDettaglio] = nuovoVal;
-                                });
-                                _aggiornaRigaImmediatamente(
-                                  idDettaglio: d.idDettaglio,
-                                  spunta: nuovoVal,
-                                  qtaTornata: _qtaTornate[d.idDettaglio]!,
-                                  note: controllerNota.text,
-                                );
-                              },
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    d.nomeMateriale ?? d.materialeId,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                      decoration: isSpuntato && !isMancante
-                                          ? TextDecoration.lineThrough
-                                          : null,
-                                      color: isSpuntato && !isMancante
-                                          ? Colors.grey.shade600
-                                          : null,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    'Prelevati originariamente: ${d.quantitaPrelevata} ${d.unitaMisura}',
-                                    style: TextStyle(
-                                      color: d.isMetri
-                                          ? Colors.deepOrange
-                                          : theme.colorScheme.primary,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      if (isSpuntato) ...[
-                        const Divider(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Q.tà Tornata (${d.unitaMisura}):',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                            QuantityStepper(
-                              value: qtaTornata,
-                              minValue: 0,
-                              maxValue: d.quantitaPrelevata,
-                              unit: d.unitaMisura,
-                              isMetri: d.isMetri,
-                              itemName: d.nomeMateriale,
-                              onChanged: (newVal) {
-                                setState(() {
-                                  _qtaTornate[d.idDettaglio] = newVal;
-                                });
-                                _aggiornaRigaImmediatamente(
-                                  idDettaglio: d.idDettaglio,
-                                  spunta: isSpuntato,
-                                  qtaTornata: newVal,
-                                  note: controllerNota.text,
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        TextField(
-                          controller: controllerNota,
-                          maxLines: null,
-                          keyboardType: TextInputType.multiline,
-                          decoration: InputDecoration(
-                            isDense: true,
-                            labelText: isMancante
-                                ? 'Note rientro (Ammanco di ${d.quantitaPrelevata - qtaTornata} ${d.unitaMisura})'
-                                : 'Note rientro / Condizioni (opzionale)',
-                            hintText: 'Es. 1 moschettone bloccato, corda tagliata/usurata',
-                            prefixIcon: Icon(
-                              isMancante
-                                  ? Icons.warning_amber_rounded
-                                  : Icons.edit_note_rounded,
-                              color: isMancante ? Colors.orange : Colors.grey,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          onChanged: (text) {
-                            _debounceTimers[d.idDettaglio]?.cancel();
-                            _debounceTimers[d.idDettaglio] =
-                                Timer(const Duration(milliseconds: 300), () {
-                              _aggiornaRigaImmediatamente(
-                                idDettaglio: d.idDettaglio,
-                                spunta: isSpuntato,
-                                qtaTornata: _qtaTornate[d.idDettaglio]!,
-                                note: text,
-                              );
-                            });
-                          },
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
+              return _DettaglioRientroCard(
+                key: ValueKey(d.idDettaglio),
+                dettaglio: d,
+                isSpuntato: isSpuntato,
+                qtaTornata: qtaTornata,
+                initialNote: currentNote,
+                onSpuntaChanged: (val) {
+                  setState(() {
+                    _spunte[d.idDettaglio] = val;
+                    if (val && _qtaTornate[d.idDettaglio] == 0) {
+                      _qtaTornate[d.idDettaglio] = d.quantitaPrelevata;
+                    }
+                  });
+                  _aggiornaRigaImmediatamente(
+                    idDettaglio: d.idDettaglio,
+                    spunta: val,
+                    qtaTornata: _qtaTornate[d.idDettaglio]!,
+                    note: _noteTexts[d.idDettaglio] ?? '',
+                  );
+                },
+                onQtaChanged: (newVal) {
+                  setState(() {
+                    _qtaTornate[d.idDettaglio] = newVal;
+                  });
+                  _aggiornaRigaImmediatamente(
+                    idDettaglio: d.idDettaglio,
+                    spunta: isSpuntato,
+                    qtaTornata: newVal,
+                    note: _noteTexts[d.idDettaglio] ?? '',
+                  );
+                },
+                onNoteChanged: (text) {
+                  _noteTexts[d.idDettaglio] = text;
+                  _debounceTimers[d.idDettaglio]?.cancel();
+                  _debounceTimers[d.idDettaglio] =
+                      Timer(const Duration(milliseconds: 300), () {
+                    _aggiornaRigaImmediatamente(
+                      idDettaglio: d.idDettaglio,
+                      spunta: _spunte[d.idDettaglio] ?? false,
+                      qtaTornata: _qtaTornate[d.idDettaglio]!,
+                      note: text,
+                    );
+                  });
+                },
               );
             },
           ),
@@ -937,6 +814,180 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _DettaglioRientroCard extends StatefulWidget {
+  final DettaglioPrelievo dettaglio;
+  final bool isSpuntato;
+  final int qtaTornata;
+  final String initialNote;
+  final ValueChanged<bool> onSpuntaChanged;
+  final ValueChanged<int> onQtaChanged;
+  final ValueChanged<String> onNoteChanged;
+
+  const _DettaglioRientroCard({
+    super.key,
+    required this.dettaglio,
+    required this.isSpuntato,
+    required this.qtaTornata,
+    required this.initialNote,
+    required this.onSpuntaChanged,
+    required this.onQtaChanged,
+    required this.onNoteChanged,
+  });
+
+  @override
+  State<_DettaglioRientroCard> createState() => _DettaglioRientroCardState();
+}
+
+class _DettaglioRientroCardState extends State<_DettaglioRientroCard> {
+  late final TextEditingController _noteController;
+
+  @override
+  void initState() {
+    super.initState();
+    _noteController = TextEditingController(text: widget.initialNote);
+  }
+
+  @override
+  void didUpdateWidget(covariant _DettaglioRientroCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.dettaglio.idDettaglio != widget.dettaglio.idDettaglio) {
+      _noteController.text = widget.initialNote;
+    }
+  }
+
+  @override
+  void dispose() {
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final d = widget.dettaglio;
+    final isSpuntato = widget.isSpuntato;
+    final qtaTornata = widget.qtaTornata;
+    final isMancante = isSpuntato && qtaTornata < d.quantitaPrelevata;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: isSpuntato
+              ? (isMancante ? Colors.orange.shade800 : Colors.green.shade600)
+              : Colors.grey.shade300,
+          width: isSpuntato ? 2.5 : 1,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                SizedBox(
+                  width: 52,
+                  height: 48,
+                  child: Switch(
+                    value: isSpuntato,
+                    activeTrackColor: Colors.green.shade700,
+                    onChanged: widget.onSpuntaChanged,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () => widget.onSpuntaChanged(!isSpuntato),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          d.nomeMateriale ?? d.materialeId,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            decoration: isSpuntato && !isMancante
+                                ? TextDecoration.lineThrough
+                                : null,
+                            color: isSpuntato && !isMancante
+                                ? Colors.grey.shade600
+                                : null,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Prelevati originariamente: ${d.quantitaPrelevata} ${d.unitaMisura}',
+                          style: TextStyle(
+                            color: d.isMetri
+                                ? Colors.deepOrange
+                                : theme.colorScheme.primary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (isSpuntato) ...[
+              const Divider(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Q.tà Tornata (${d.unitaMisura}):',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  QuantityStepper(
+                    value: qtaTornata,
+                    minValue: 0,
+                    maxValue: d.quantitaPrelevata,
+                    unit: d.unitaMisura,
+                    isMetri: d.isMetri,
+                    itemName: d.nomeMateriale,
+                    onChanged: widget.onQtaChanged,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _noteController,
+                maxLines: null,
+                keyboardType: TextInputType.multiline,
+                decoration: InputDecoration(
+                  isDense: true,
+                  labelText: isMancante
+                      ? 'Note rientro (Ammanco di ${d.quantitaPrelevata - qtaTornata} ${d.unitaMisura})'
+                      : 'Note rientro / Condizioni (opzionale)',
+                  hintText: 'Es. 1 moschettone bloccato, corda tagliata/usurata',
+                  prefixIcon: Icon(
+                    isMancante
+                        ? Icons.warning_amber_rounded
+                        : Icons.edit_note_rounded,
+                    color: isMancante ? Colors.orange : Colors.grey,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                onChanged: widget.onNoteChanged,
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

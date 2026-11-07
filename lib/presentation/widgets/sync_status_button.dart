@@ -420,6 +420,7 @@ class SyncStatusButton extends ConsumerWidget {
                             onPressed: isTesting
                                 ? null
                                 : () async {
+                                    if (!dialogContext.mounted) return;
                                     setDialogState(() {
                                       isTesting = true;
                                       statusMessage = null;
@@ -427,6 +428,7 @@ class SyncStatusButton extends ConsumerWidget {
                                     final testRes = await ref
                                         .read(syncControllerProvider.notifier)
                                         .testConnessione(textController.text);
+                                    if (!dialogContext.mounted) return;
                                     setDialogState(() {
                                       isTesting = false;
                                       isSuccess = testRes.isSuccess;
@@ -450,6 +452,7 @@ class SyncStatusButton extends ConsumerWidget {
                               final count = await ref
                                   .read(syncControllerProvider.notifier)
                                   .sincronizzaCatalogoDaGoogleSheets(textController.text);
+                              if (!dialogContext.mounted) return;
                               setDialogState(() {
                                 isSuccess = count > 0;
                                 statusMessage = count > 0
@@ -490,6 +493,6 @@ class SyncStatusButton extends ConsumerWidget {
           },
         );
       },
-    );
+    ).whenComplete(() => textController.dispose());
   }
 }

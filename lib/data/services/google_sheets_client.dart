@@ -51,10 +51,34 @@ class GoogleSheetsClient {
 
   GoogleSheetsClient({http.Client? client}) : _client = client ?? http.Client();
 
+  /// Pulisce l'URL inserito rimuovendo apici, spazi accidentali o ritorni a capo
+  static String sanitizeUrl(String rawUrl) {
+    var url = rawUrl.trim();
+    if ((url.startsWith('"') && url.endsWith('"')) ||
+        (url.startsWith("'") && url.endsWith("'"))) {
+      url = url.substring(1, url.length - 1).trim();
+    }
+    url = url.replaceAll(RegExp(r'\s+'), '');
+    return url;
+  }
+
+  String _formatNetworkError(dynamic e) {
+    final str = e.toString();
+    if (str.contains('Failed host lookup') || str.contains('SocketException') || str.contains('errno = 7')) {
+      return 'Impossibile raggiungere Google Sheets (Failed host lookup).\n'
+          'Verifica che il dispositivo sia connesso a Internet (Wi-Fi o Dati mobili) '
+          'e che l\'URL della Web App sia corretto (deve terminare con /exec).';
+    }
+    if (str.contains('TimeoutException')) {
+      return 'Timeout connessione: Google Sheets non ha risposto in tempo.';
+    }
+    return 'Connessione fallita: $str';
+  }
+
   /// Esegue un ping di test verso l'URL della Web App di Google Apps Script
   Future<GoogleSheetsPingResult> testConnection(String webAppUrl) async {
     try {
-      final cleanUrl = webAppUrl.trim();
+      final cleanUrl = sanitizeUrl(webAppUrl);
       if (cleanUrl.isEmpty || !cleanUrl.startsWith('http')) {
         return const GoogleSheetsPingResult(
           isSuccess: false,
@@ -87,7 +111,7 @@ class GoogleSheetsClient {
     } catch (e) {
       return GoogleSheetsPingResult(
         isSuccess: false,
-        errorMessage: 'Connessione fallita: $e',
+        errorMessage: _formatNetworkError(e),
       );
     }
   }
@@ -98,7 +122,7 @@ class GoogleSheetsClient {
     SyncPayload payload,
   ) async {
     try {
-      final cleanUrl = webAppUrl.trim();
+      final cleanUrl = sanitizeUrl(webAppUrl);
       if (cleanUrl.isEmpty) {
         return const GoogleSheetsUploadResult(
           isSuccess: false,
@@ -151,7 +175,7 @@ class GoogleSheetsClient {
     } catch (e) {
       return GoogleSheetsUploadResult(
         isSuccess: false,
-        errorMessage: 'Errore di rete: $e',
+        errorMessage: _formatNetworkError(e),
       );
     }
   }
@@ -159,7 +183,7 @@ class GoogleSheetsClient {
   /// Scarica tutti i prelievi e i dettagli salvati nel foglio Google
   Future<GoogleSheetsDownloadResult> fetchPrelieviEDettagli(String webAppUrl) async {
     try {
-      final cleanUrl = webAppUrl.trim();
+      final cleanUrl = sanitizeUrl(webAppUrl);
       if (cleanUrl.isEmpty) {
         return const GoogleSheetsDownloadResult(
           isSuccess: false,
@@ -244,14 +268,14 @@ class GoogleSheetsClient {
     } catch (e) {
       return GoogleSheetsDownloadResult(
         isSuccess: false,
-        errorMessage: 'Errore durante il download: $e',
+        errorMessage: _formatNetworkError(e),
       );
     }
   }
 
   /// Scarica il catalogo aggiornato dal foglio Google Sheets
   Future<List<Catalogo>> fetchCatalogo(String webAppUrl) async {
-    final cleanUrl = webAppUrl.trim();
+    final cleanUrl = sanitizeUrl(webAppUrl);
     if (cleanUrl.isEmpty) return [];
 
     final uri = Uri.parse(cleanUrl).replace(queryParameters: {'action': 'get_catalogo'});
