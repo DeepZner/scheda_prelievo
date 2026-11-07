@@ -92,18 +92,8 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.asset(
-              'assets/images/logo_scr.png',
-              height: 24,
-            ),
-            const SizedBox(width: 8),
-            const Text('Scheda Prelievo'),
-          ],
-        ),
-        centerTitle: true,
+        title: const Text('Scheda Prelievo'),
+        centerTitle: false,
         actions: [
           prelievoAsync.maybeWhen(
             data: (p) => p != null && p.isModificabile
@@ -169,25 +159,25 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Intestazione scheda: Logo SCR a sinistra e Badge di stato a destra
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Image.asset(
                             'assets/images/logo_scr.png',
-                            height: 26,
+                            height: 28,
                           ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              prelievo.luogoGrotta,
-                              style: theme.textTheme.headlineSmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
                           StatoBadge(stato: prelievo.stato),
                         ],
+                      ),
+                      const SizedBox(height: 12),
+                      // Nome luogo/grotta a piena larghezza per evitare wrapping forzato
+                      Text(
+                        prelievo.luogoGrotta,
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 12),
                       Row(

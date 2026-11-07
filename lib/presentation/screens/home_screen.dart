@@ -25,16 +25,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           children: [
             Image.asset(
               'assets/images/logo_scr.png',
-              height: 26,
+              height: 24,
             ),
-            const SizedBox(width: 10),
-            Text(
-              _currentIndex == 0 ? 'Storico Prelievi' : 'Spunta Rientro',
-              style: const TextStyle(fontWeight: FontWeight.bold),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                _currentIndex == 0 ? 'Storico Prelievi' : 'Spunta Rientro',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),
-        centerTitle: true,
+        centerTitle: false,
         actions: const [
           SyncStatusButton(),
           SizedBox(width: 8),

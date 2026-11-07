@@ -740,17 +740,7 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.asset(
-              'assets/images/logo_scr.png',
-              height: 24,
-            ),
-            const SizedBox(width: 8),
-            Text(isEditing ? 'Modifica Prelievo' : 'Nuovo Prelievo'),
-          ],
-        ),
+        title: Text(isEditing ? 'Modifica Prelievo' : 'Nuovo Prelievo'),
         centerTitle: true,
       ),
       body: SafeArea(

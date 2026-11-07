@@ -40,33 +40,33 @@ class PrelievoCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Intestazione Card: Logo SCR a sinistra e StatoBadge a destra
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Image.asset(
                     'assets/images/logo_scr.png',
-                    height: 20,
+                    height: 22,
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      prelievo.luogoGrotta,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        decoration:
-                            prelievo.stato == StatoPrelievo.annullato
-                                ? TextDecoration.lineThrough
-                                : null,
-                        color: prelievo.stato == StatoPrelievo.annullato
-                            ? Colors.grey.shade600
-                            : null,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
                   StatoBadge(stato: prelievo.stato),
                 ],
+              ),
+              const SizedBox(height: 8),
+              // Luogo/Grotta a piena larghezza
+              Text(
+                prelievo.luogoGrotta,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  decoration:
+                      prelievo.stato == StatoPrelievo.annullato
+                          ? TextDecoration.lineThrough
+                          : null,
+                  color: prelievo.stato == StatoPrelievo.annullato
+                      ? Colors.grey.shade600
+                      : null,
+                ),
               ),
               const SizedBox(height: 8),
               Row(
