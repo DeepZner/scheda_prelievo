@@ -12,8 +12,9 @@ class StoricoPrelieviScreen extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Image.asset(
-              'assets/images/logo_scr.png',
-              height: 22,
+              'assets/images/app_logo.png',
+              height: 26,
+              width: 26,
             ),
             const SizedBox(width: 8),
             const Flexible(

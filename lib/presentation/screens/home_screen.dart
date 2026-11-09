@@ -24,8 +24,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Image.asset(
-              'assets/images/logo_scr.png',
-              height: 24,
+              'assets/images/app_logo.png',
+              height: 28,
+              width: 28,
             ),
             const SizedBox(width: 8),
             Flexible(
