@@ -73,5 +73,13 @@ void main() {
       final url = await service.getWebShareUrl('abc-123');
       expect(url, equals('https://script.google.com/macros/s/CLEAN_URL/exec?scheda=abc-123'));
     });
+
+    test('getWebShareUrl removes trailing slash and replaces /dev with /exec', () async {
+      final service = SyncService();
+      await service.setGoogleSheetsUrl('https://script.google.com/macros/s/DEV_TEST/dev/');
+
+      final url = await service.getWebShareUrl('dev-123');
+      expect(url, equals('https://script.google.com/macros/s/DEV_TEST/exec?scheda=dev-123'));
+    });
   });
 }

@@ -139,7 +139,11 @@ class SyncService {
   Future<String?> getWebShareUrl(String prelievoId) async {
     final rawUrl = await getGoogleSheetsUrl();
     if (rawUrl == null || rawUrl.trim().isEmpty) return null;
-    final cleanUrl = GoogleSheetsClient.sanitizeUrl(rawUrl);
+    var cleanUrl = GoogleSheetsClient.sanitizeUrl(rawUrl);
+    // Se è stato inserito un URL /dev di test, convertilo automaticamente in /exec
+    if (cleanUrl.endsWith('/dev')) {
+      cleanUrl = '${cleanUrl.substring(0, cleanUrl.length - 4)}/exec';
+    }
     return '$cleanUrl?scheda=$prelievoId';
   }
 

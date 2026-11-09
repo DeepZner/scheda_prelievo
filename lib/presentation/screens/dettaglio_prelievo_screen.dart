@@ -172,9 +172,12 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
                     await Clipboard.setData(ClipboardData(text: shareText));
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
+                        SnackBar(
+                          duration: const Duration(seconds: 4),
                           content: Text(
-                            'Link Web copiato negli appunti (pronto per WhatsApp o SMS)!',
+                            p.isSynced
+                                ? 'Link Web copiato negli appunti (pronto per WhatsApp o SMS)!'
+                                : 'Link Web copiato! Ricorda di sincronizzare con Google Sheets affinché la scheda sia visibile online.',
                           ),
                         ),
                       );
