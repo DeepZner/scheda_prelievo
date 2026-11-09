@@ -1340,7 +1340,9 @@ function menuEseguiBackupManuale() {
   const ui = SpreadsheetApp.getUi();
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    ui.toast("Creazione backup in corso (Google Sheets + Excel)...", "Backup Magazzino", 5);
+    if (ss && ss.toast) {
+      ss.toast("Creazione backup in corso (Google Sheets + Excel)...", "Backup Magazzino", 5);
+    }
     const res = eseguiBackupCompleto(ss, "MANUALE");
 
     let msg = "✅ Backup completato con successo!\n\n" +
