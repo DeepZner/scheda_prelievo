@@ -1,7 +1,7 @@
 name: scheda_prelievo
 description: "App Magazzino Speleo Club Roma - Gestione prelievi e riconsegne attrezzature speleo."
 publish_to: "none"
-version: 0.1.1+2
+version: 0.1.2+3
 
 environment:
   sdk: ^3.13.7
