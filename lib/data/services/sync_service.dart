@@ -135,6 +135,14 @@ class SyncService {
     await _dbHelper.setSetting(settingGoogleSheetsUrl, url.trim());
   }
 
+  /// Restituisce l'URL di consultazione Web per una specifica scheda prelievo
+  Future<String?> getWebShareUrl(String prelievoId) async {
+    final rawUrl = await getGoogleSheetsUrl();
+    if (rawUrl == null || rawUrl.trim().isEmpty) return null;
+    final cleanUrl = GoogleSheetsClient.sanitizeUrl(rawUrl);
+    return '$cleanUrl?scheda=$prelievoId';
+  }
+
   /// Esegue un ping di test sull'URL della Web App
   Future<GoogleSheetsPingResult> testGoogleSheetsConnection([String? urlOverride]) async {
     final url = urlOverride ?? await getGoogleSheetsUrl();
