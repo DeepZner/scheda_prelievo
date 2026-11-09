@@ -12,10 +12,14 @@
  *    la funzione "correggiEFormattaTuttiIFogli" e clicca su "Esegui".
  *    (Se Google chiede l'autorizzazione all'accesso al foglio, conferma con il tuo account).
  * 7. Torna al foglio: vedrai tutti i fogli e colonne allineati e formattati automaticamente!
- * 8. Per aggiornare la Web App usata dallo smartphone:
+ * 8. Nel menu in alto "Speleo Magazzino":
+ *    - "💾 Esegui Backup Adesso (1-Click)": crea subito una copia Sheets ed esporta Excel (.xlsx).
+ *    - "⏰ Attiva/Verifica Backup Notturno Automatico": attiva lo snapshot notturno automatico delle 03:00.
+ * 9. Per aggiornare la Web App usata dallo smartphone:
  *    - In alto a destra clicca "Distribuisci" -> "Gestisci distribuzioni".
  *    - Clicca sull'icona della matita (Modifica).
  *    - Nel menu a tendina "Versione" seleziona "Nuova versione".
+ *    - Assicurati che "Chi ha accesso" sia "Chiunque".
  *    - Clicca su "Distribuisci".
  */
 
@@ -32,6 +36,9 @@ function onOpen() {
     SpreadsheetApp.getUi()
       .createMenu("Speleo Magazzino")
       .addItem("⚡ Allinea e Formatta Fogli (Automatico)", "correggiEFormattaTuttiIFogli")
+      .addSeparator()
+      .addItem("💾 Esegui Backup Adesso (1-Click)", "menuEseguiBackupManuale")
+      .addItem("⏰ Attiva/Verifica Backup Notturno Automatico", "menuConfiguraBackupNotturno")
       .addToUi();
   } catch (e) {
     // Non disponibile in contesti trigger headless
@@ -62,6 +69,16 @@ function doGet(e) {
         message: "Connessione a Google Sheets attiva!",
         spreadsheet_name: ss.getName(),
         timestamp: new Date().toISOString()
+      });
+    }
+
+    // Esecuzione backup on-demand via Web API
+    if (action === "backup") {
+      const resBackup = eseguiBackupCompleto(ss, "MANUALE_API");
+      return jsonResponse({
+        status: "ok",
+        message: "Backup completato con successo!",
+        backup: resBackup
       });
     }
 
@@ -853,6 +870,13 @@ function setupInitialSheets() {
 function correggiEFormattaTuttiIFogli() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
+  // Snapshot di sicurezza pre-formattazione (Copia Sheets + Excel)
+  try {
+    eseguiBackupCompleto(ss, "PRE_FORMATTAZIONE");
+  } catch (e) {
+    console.warn("Attenzione: snapshot pre-formattazione non riuscito: " + e);
+  }
+
   // 1. Assicura e formatta Foglio Catalogo
   let sheetC = ss.getSheetByName(SHEET_CATALOGO);
   if (!sheetC) {
@@ -1161,4 +1185,258 @@ function findColIndex(headers, possibleNames, defaultIndex) {
     }
   }
   return defaultIndex;
+}
+
+// ============================================================================
+// MODULO BACKUP & DISASTER RECOVERY (GOOGLE DRIVE + EXCEL .XLSX)
+// ============================================================================
+
+// Nome della cartella di backup creata automaticamente all'interno della cartella del foglio
+const BACKUP_FOLDER_NAME = "Magazzino Speleo - Backup";
+// Giorni di retention per i backup automatici ordinari
+const BACKUP_RETENTION_DAYS = 30;
+
+/**
+ * Ottiene o crea la cartella di backup su Google Drive
+ * (posizionata all'interno della stessa cartella genitore in cui risiede il foglio principale)
+ */
+function getOrCreateBackupFolder(ss) {
+  try {
+    const file = DriveApp.getFileById(ss.getId());
+    const parents = file.getParents();
+    const parentFolder = parents.hasNext() ? parents.next() : DriveApp.getRootFolder();
+
+    const subfolders = parentFolder.getFoldersByName(BACKUP_FOLDER_NAME);
+    if (subfolders.hasNext()) {
+      return subfolders.next();
+    }
+    return parentFolder.createFolder(BACKUP_FOLDER_NAME);
+  } catch (e) {
+    const rootSubfolders = DriveApp.getFoldersByName(BACKUP_FOLDER_NAME);
+    if (rootSubfolders.hasNext()) {
+      return rootSubfolders.next();
+    }
+    return DriveApp.createFolder(BACKUP_FOLDER_NAME);
+  }
+}
+
+/**
+ * Esegue il backup completo:
+ * 1. Snapshot copia nativa Google Sheets
+ * 2. Esportazione offline Microsoft Excel (.xlsx)
+ * 3. Rotazione automatica delle copie obsolete (Retention a 30 giorni)
+ * 
+ * @param {Spreadsheet} ss - Il foglio attivo
+ * @param {string} tipo - "AUTOMATICO", "MANUALE" o "PRE_FORMATTAZIONE"
+ * @return {object} Dettagli del backup creato
+ */
+function eseguiBackupCompleto(ss, tipo) {
+  if (!ss) {
+    ss = SpreadsheetApp.getActiveSpreadsheet();
+  }
+  const file = DriveApp.getFileById(ss.getId());
+  const backupFolder = getOrCreateBackupFolder(ss);
+
+  // Formatta data e ora corrente: YYYY-MM-DD_HHmm
+  const now = new Date();
+  const pad = function(n) { return (n < 10 ? "0" : "") + n; };
+  const timestampStr = now.getFullYear() + "-" +
+    pad(now.getMonth() + 1) + "-" +
+    pad(now.getDate()) + "_" +
+    pad(now.getHours()) + "" +
+    pad(now.getMinutes());
+
+  const tagTipo = tipo ? "_" + tipo : "";
+  const baseName = "Backup_Magazzino_" + timestampStr + tagTipo;
+
+  // 1. Snapshot copia nativa Google Sheets
+  const sheetCopy = file.makeCopy(baseName, backupFolder);
+
+  // 2. Esportazione offline Microsoft Excel (.xlsx)
+  let xlsxFile = null;
+  try {
+    const url = "https://docs.google.com/spreadsheets/d/" + ss.getId() + "/export?format=xlsx";
+    const res = UrlFetchApp.fetch(url, {
+      method: "get",
+      headers: { "Authorization": "Bearer " + ScriptApp.getOAuthToken() },
+      muteHttpExceptions: true
+    });
+    if (res.getResponseCode() === 200) {
+      const blob = res.getBlob().setName(baseName + ".xlsx");
+      xlsxFile = backupFolder.createFile(blob);
+    }
+  } catch (eXlsx) {
+    console.warn("Esportazione Excel non riuscita: " + eXlsx);
+  }
+
+  // 3. Esegui la rotazione automatica dei vecchi backup (Retention Policy)
+  let eliminatiCount = 0;
+  try {
+    eliminatiCount = eseguiRotazioneBackup(backupFolder);
+  } catch (eRot) {
+    console.warn("Rotazione backup non riuscita: " + eRot);
+  }
+
+  return {
+    success: true,
+    timestamp: timestampStr,
+    sheetName: sheetCopy.getName(),
+    sheetUrl: sheetCopy.getUrl(),
+    xlsxName: xlsxFile ? xlsxFile.getName() : null,
+    folderName: backupFolder.getName(),
+    folderUrl: backupFolder.getUrl(),
+    eliminatiCount: eliminatiCount
+  };
+}
+
+/**
+ * Elimina i file di backup automatico più vecchi di BACKUP_RETENTION_DAYS giorni,
+ * preservando i backup mensili (del 1° del mese fino a 365 giorni) e quelli manuali o pre-formattazione (90 giorni).
+ */
+function eseguiRotazioneBackup(backupFolder) {
+  const files = backupFolder.getFiles();
+  const cutoffTime = new Date().getTime() - (BACKUP_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+  let eliminati = 0;
+
+  while (files.hasNext()) {
+    const f = files.next();
+    const name = f.getName();
+    const created = f.getDateCreated();
+
+    // Preserva i backup manuali o pre-formattazione per almeno 90 giorni
+    if (name.includes("_MANUALE") || name.includes("_PRE_FORMATTAZIONE")) {
+      const manualCutoff = new Date().getTime() - (90 * 24 * 60 * 60 * 1000);
+      if (created.getTime() < manualCutoff) {
+        f.setTrashed(true);
+        eliminati++;
+      }
+      continue;
+    }
+
+    // Preserva i backup del 1° del mese per 1 anno (365 giorni)
+    const matchDay = name.match(/_(\d{4}-\d{2}-01)_/);
+    if (matchDay) {
+      const yearlyCutoff = new Date().getTime() - (365 * 24 * 60 * 60 * 1000);
+      if (created.getTime() < yearlyCutoff) {
+        f.setTrashed(true);
+        eliminati++;
+      }
+      continue;
+    }
+
+    // Elimina i backup automatici ordinari più vecchi del periodo di retention
+    if (created.getTime() < cutoffTime) {
+      f.setTrashed(true);
+      eliminati++;
+    }
+  }
+  return eliminati;
+}
+
+/**
+ * Handler per la voce di menu "💾 Esegui Backup Adesso (1-Click)"
+ */
+function menuEseguiBackupManuale() {
+  const ui = SpreadsheetApp.getUi();
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    ui.toast("Creazione backup in corso (Google Sheets + Excel)...", "Backup Magazzino", 5);
+    const res = eseguiBackupCompleto(ss, "MANUALE");
+
+    let msg = "✅ Backup completato con successo!\n\n" +
+      "Cartella: " + res.folderName + "\n" +
+      "• Copia Google Sheets: " + res.sheetName + "\n";
+    if (res.xlsxName) {
+      msg += "• Copia Excel: " + res.xlsxName + "\n";
+    }
+    if (res.eliminatiCount > 0) {
+      msg += "\nRotazione: rimossi " + res.eliminatiCount + " file obsoleti (> 30gg).";
+    }
+    ui.alert("Backup Magazzino Speleo", msg, ui.ButtonSet.OK);
+  } catch (err) {
+    ui.alert("Errore Backup", "Impossibile completare il backup:\n" + err.toString(), ui.ButtonSet.OK);
+  }
+}
+
+/**
+ * Handler per la voce di menu "⏰ Attiva/Verifica Backup Notturno Automatico"
+ */
+function menuConfiguraBackupNotturno() {
+  const ui = SpreadsheetApp.getUi();
+  try {
+    const triggers = ScriptApp.getProjectTriggers();
+    let triggerAttivo = false;
+    for (let i = 0; i < triggers.length; i++) {
+      if (triggers[i].getHandlerFunction() === "triggerBackupNotturno") {
+        triggerAttivo = true;
+        break;
+      }
+    }
+
+    if (triggerAttivo) {
+      const resp = ui.alert(
+        "Backup Notturno Attivo",
+        "Il trigger automatico notturno è già configurato ed attivo!\n\n" +
+        "Viene eseguito ogni notte tra le 02:00 e le 04:00, salvando copia Google Sheets + Excel nella cartella 'Magazzino Speleo - Backup'.\n\n" +
+        "Vuoi reinstallarlo per rinnovare i permessi?",
+        ui.ButtonSet.YES_NO
+      );
+      if (resp !== ui.Button.YES) return;
+    }
+
+    installaTriggerBackupNotturno();
+    ui.alert(
+      "Configurazione Riuscita",
+      "✅ Trigger notturno installato con successo!\n\n" +
+      "Ogni notte alle 03:00 verrà creato automaticamente un nuovo snapshot (Sheets + Excel) con rotazione a 30 giorni.",
+      ui.ButtonSet.OK
+    );
+  } catch (err) {
+    ui.alert("Errore Trigger", "Impossibile configurare il trigger notturno:\n" + err.toString(), ui.ButtonSet.OK);
+  }
+}
+
+/**
+ * Installa il trigger temporale programmato per eseguire il backup notturno ogni notte alle ore 03:00
+ */
+function installaTriggerBackupNotturno() {
+  const triggers = ScriptApp.getProjectTriggers();
+  for (let i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === "triggerBackupNotturno") {
+      ScriptApp.deleteTrigger(triggers[i]);
+    }
+  }
+
+  ScriptApp.newTrigger("triggerBackupNotturno")
+    .timeBased()
+    .everyDays(1)
+    .atHour(3)
+    .create();
+}
+
+/**
+ * Funzione invocata automaticamente dal trigger temporale notturno
+ */
+function triggerBackupNotturno() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    eseguiBackupCompleto(ss, "AUTOMATICO");
+    console.log("Backup notturno completato regolarmente.");
+  } catch (err) {
+    console.error("Errore durante il backup notturno: " + err);
+    try {
+      const ownerEmail = Session.getEffectiveUser().getEmail();
+      if (ownerEmail) {
+        MailApp.sendEmail(
+          ownerEmail,
+          "⚠️ Errore Backup Notturno - Speleo Club Roma",
+          "Si è verificato un errore durante l'esecuzione del backup automatico del foglio Magazzino Speleo:\n\n" +
+          err.toString() + "\n\n" +
+          "Timestamp: " + new Date().toISOString()
+        );
+      }
+    } catch (mailErr) {
+      console.error("Invio email di avviso fallito: " + mailErr);
+    }
+  }
 }
