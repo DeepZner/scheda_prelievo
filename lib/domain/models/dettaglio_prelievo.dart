@@ -35,19 +35,24 @@ class DettaglioPrelievo {
     final nomeLower = (nomeMateriale ?? materialeId).toLowerCase().trim();
     final idLower = materialeId.toLowerCase().trim();
 
-    if (idLower == 'c_001' || idLower == 'c_002' || idLower == 'r_003') {
+    // Cordini, sacchi e guaine sono sempre trattati a pezzi (pz)
+    if (nomeLower.contains('cordin') ||
+        nomeLower.contains('sacch') ||
+        nomeLower.contains('guain') ||
+        idLower == 'c_002' ||
+        idLower == 'c_003' ||
+        idLower == 'c_004') {
+      return false;
+    }
+
+    if (idLower == 'c_001' || idLower == 'r_003') {
       return true;
     }
     if (catLower == 'corde') {
-      if (nomeLower.contains('sacch') || nomeLower.contains('guain')) {
-        return false;
-      }
       return true;
     }
     if (nomeLower.contains('corda') ||
         nomeLower.contains('corde') ||
-        nomeLower.contains('cordino') ||
-        nomeLower.contains('cordini') ||
         nomeLower.contains('fettucci') ||
         nomeLower.contains('spezzon')) {
       return true;

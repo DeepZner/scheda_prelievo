@@ -180,8 +180,8 @@ void main() {
         categoria: 'Corde',
         nomeOggetto: 'Cordini',
       );
-      expect(cordino.isMetri, isTrue);
-      expect(cordino.unitaMisura, 'm');
+      expect(cordino.isMetri, isFalse);
+      expect(cordino.unitaMisura, 'pz');
 
       const sacco = Catalogo(
         idMateriale: 'C_003',
@@ -229,6 +229,18 @@ void main() {
       );
       expect(detMoschettone.isMetri, isFalse);
       expect(detMoschettone.unitaMisura, 'pz');
+
+      const detCordino = DettaglioPrelievo(
+        idDettaglio: 'd-3',
+        prelievoId: 'p-1',
+        materialeId: 'C_002',
+        nomeMateriale: 'Cordini',
+        categoriaMateriale: 'Corde',
+        quantitaPrelevata: 4,
+      );
+      expect(detCordino.isMetri, isFalse);
+      expect(detCordino.unitaMisura, 'pz');
+      expect(detCordino.numeroPezzi, 4);
     });
 
     test('Sorting: Descending for spunta rientro vs Ascending grouped for storico', () {
