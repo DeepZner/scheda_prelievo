@@ -9,6 +9,7 @@ import '../../data/services/pdf_service.dart';
 import '../providers/prelievi_provider.dart';
 import '../providers/sync_provider.dart';
 import '../widgets/stato_badge.dart';
+import '../widgets/sync_status_button.dart';
 
 class DettaglioPrelievoScreen extends ConsumerWidget {
   final String prelievoId;
@@ -152,11 +153,27 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
                     final webUrl = await syncService.getWebShareUrl(p.id);
                     if (webUrl == null) {
                       if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'URL di Google Sheets non ancora configurato nelle impostazioni.',
+                        showDialog(
+                          context: context,
+                          builder: (dCtx) => AlertDialog(
+                            title: const Text('URL Web App Mancante'),
+                            content: const Text(
+                              'Per condividere la scheda via web è necessario aver inserito l\'URL della Web App di Google Apps Script (creata sul tuo foglio di Google Drive e terminante con /exec).\n\n'
+                              'Vuoi inserire l\'URL adesso?',
                             ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(dCtx),
+                                child: const Text('Annulla'),
+                              ),
+                              FilledButton(
+                                onPressed: () {
+                                  Navigator.pop(dCtx);
+                                  SyncStatusButton.mostraDialogImpostazioniUrl(context, ref);
+                                },
+                                child: const Text('Configura URL'),
+                              ),
+                            ],
                           ),
                         );
                       }

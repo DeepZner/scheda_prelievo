@@ -58,27 +58,27 @@ void main() {
   });
 
   group('Web Share URL Generation Tests', () {
-    test('getWebShareUrl returns clean url with ?scheda=UUID', () async {
-      final service = SyncService();
-      await service.setGoogleSheetsUrl('https://script.google.com/macros/s/AKfycbz_TEST/exec');
-
-      final url = await service.getWebShareUrl('test-uuid-4321');
+    test('formatWebShareUrl returns clean url with ?scheda=UUID', () {
+      final url = SyncService.formatWebShareUrl(
+        'https://script.google.com/macros/s/AKfycbz_TEST/exec',
+        'test-uuid-4321',
+      );
       expect(url, equals('https://script.google.com/macros/s/AKfycbz_TEST/exec?scheda=test-uuid-4321'));
     });
 
-    test('getWebShareUrl sanitizes raw url with quotes or trailing spaces', () async {
-      final service = SyncService();
-      await service.setGoogleSheetsUrl('  "https://script.google.com/macros/s/CLEAN_URL/exec" \n');
-
-      final url = await service.getWebShareUrl('abc-123');
+    test('formatWebShareUrl sanitizes raw url with quotes or trailing spaces', () {
+      final url = SyncService.formatWebShareUrl(
+        '  "https://script.google.com/macros/s/CLEAN_URL/exec" \n',
+        'abc-123',
+      );
       expect(url, equals('https://script.google.com/macros/s/CLEAN_URL/exec?scheda=abc-123'));
     });
 
-    test('getWebShareUrl removes trailing slash and replaces /dev with /exec', () async {
-      final service = SyncService();
-      await service.setGoogleSheetsUrl('https://script.google.com/macros/s/DEV_TEST/dev/');
-
-      final url = await service.getWebShareUrl('dev-123');
+    test('formatWebShareUrl removes trailing slash and replaces /dev with /exec', () {
+      final url = SyncService.formatWebShareUrl(
+        'https://script.google.com/macros/s/DEV_TEST/dev/',
+        'dev-123',
+      );
       expect(url, equals('https://script.google.com/macros/s/DEV_TEST/exec?scheda=dev-123'));
     });
   });
