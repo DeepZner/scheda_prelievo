@@ -33,6 +33,11 @@ class SyncPayload {
         'data_rientro': p.dataRientro?.toIso8601String() ?? '',
         'operatore_rientro': p.operatoreRientro ?? '',
         'email_magazzinieri': p.emailMagazzinieri ?? '',
+        'relazione_testo': p.relazioneTesto ?? '',
+        'relazione_autore': p.relazioneAutore ?? '',
+        'relazione_data': p.relazioneData?.toIso8601String() ?? '',
+        'allegato_nome': p.allegatoNome ?? '',
+        'allegato_drive_url': p.allegatoDriveUrl ?? '',
       }).toList(),
       'dettagli_prelievo': dettagli.map((d) => {
         'id_dettaglio': d.idDettaglio,

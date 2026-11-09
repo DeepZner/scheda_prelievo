@@ -144,6 +144,11 @@ function doGet(e) {
           const colOperatore = findColIndex(headerP, ["operatore", "operatore rientro", "operatore_rientro"], -1);
           const colEmailMag = findColIndex(headerP, ["email magazzinieri", "email_magazzinieri", "cc"], -1);
           const colParere = findColIndex(headerP, ["parere", "note / parere", "note/parere", "note"], -1);
+          const colRelazione = findColIndex(headerP, ["relazione", "relazione_testo", "testo relazione", "relazione uscita"], -1);
+          const colRelAutore = findColIndex(headerP, ["autore relazione", "relazione_autore", "autore_relazione"], -1);
+          const colRelData = findColIndex(headerP, ["data relazione", "relazione_data", "data_relazione"], -1);
+          const colAllegato = findColIndex(headerP, ["documento allegato", "allegato_nome", "allegato", "file allegato"], -1);
+          const colAllegatoDrive = findColIndex(headerP, ["link drive allegato", "allegato_drive_url", "drive allegato"], -1);
 
           for (let i = 1; i < dataP.length; i++) {
             const row = dataP[i];
@@ -177,6 +182,14 @@ function doGet(e) {
               dataRientroIso = riconsegnaVal.toString().trim();
             }
 
+            let relDataIso = "";
+            const rawRelData = (colRelData >= 0) ? row[colRelData] : null;
+            if (rawRelData instanceof Date) {
+              relDataIso = rawRelData.toISOString();
+            } else if (rawRelData) {
+              relDataIso = rawRelData.toString().trim();
+            }
+
             prelievi.push({
               id: id,
               data_prelievo: dataIso,
@@ -186,7 +199,12 @@ function doGet(e) {
               parere: (colParere >= 0 && row[colParere]) ? row[colParere].toString().trim() : "",
               data_rientro: dataRientroIso,
               operatore_rientro: (colOperatore >= 0 && row[colOperatore]) ? row[colOperatore].toString().trim() : "",
-              email_magazzinieri: (colEmailMag >= 0 && row[colEmailMag]) ? row[colEmailMag].toString().trim() : ""
+              email_magazzinieri: (colEmailMag >= 0 && row[colEmailMag]) ? row[colEmailMag].toString().trim() : "",
+              relazione_testo: (colRelazione >= 0 && row[colRelazione]) ? row[colRelazione].toString().trim() : "",
+              relazione_autore: (colRelAutore >= 0 && row[colRelAutore]) ? row[colRelAutore].toString().trim() : "",
+              relazione_data: relDataIso,
+              allegato_nome: (colAllegato >= 0 && row[colAllegato]) ? row[colAllegato].toString().trim() : "",
+              allegato_drive_url: (colAllegatoDrive >= 0 && row[colAllegatoDrive]) ? row[colAllegatoDrive].toString().trim() : ""
             });
           }
         }
@@ -291,6 +309,11 @@ function renderSchedaHtml(ss, schedaId) {
       const colRiconsegna = findColIndex(headerP, ["data di riconsegna", "data riconsegna", "data rientro", "data_rientro", "riconsegna"], -1);
       const colOperatore = findColIndex(headerP, ["operatore", "operatore rientro", "operatore_rientro"], -1);
       const colParere = findColIndex(headerP, ["parere", "note / parere", "note/parere", "note"], -1);
+      const colRelazione = findColIndex(headerP, ["relazione", "relazione_testo", "testo relazione", "relazione uscita"], -1);
+      const colRelAutore = findColIndex(headerP, ["autore relazione", "relazione_autore", "autore_relazione"], -1);
+      const colRelData = findColIndex(headerP, ["data relazione", "relazione_data", "data_relazione"], -1);
+      const colAllegato = findColIndex(headerP, ["documento allegato", "allegato_nome", "allegato", "file allegato"], -1);
+      const colAllegatoDrive = findColIndex(headerP, ["link drive allegato", "allegato_drive_url", "drive allegato"], -1);
 
       for (let i = 1; i < dataP.length; i++) {
         const row = dataP[i];
@@ -304,7 +327,12 @@ function renderSchedaHtml(ss, schedaId) {
             stato: (colStato >= 0 && row[colStato]) ? row[colStato].toString().trim() : "In attesa materiale",
             dataRiconsegna: (colRiconsegna >= 0 && row[colRiconsegna]) ? row[colRiconsegna].toString().trim() : "",
             operatore: (colOperatore >= 0 && row[colOperatore]) ? row[colOperatore].toString().trim() : "",
-            note: (colParere >= 0 && row[colParere]) ? row[colParere].toString().trim() : ""
+            note: (colParere >= 0 && row[colParere]) ? row[colParere].toString().trim() : "",
+            relazione: (colRelazione >= 0 && row[colRelazione]) ? row[colRelazione].toString().trim() : "",
+            relazioneAutore: (colRelAutore >= 0 && row[colRelAutore]) ? row[colRelAutore].toString().trim() : "",
+            relazioneData: (colRelData >= 0 && row[colRelData]) ? row[colRelData].toString().trim() : "",
+            allegatoNome: (colAllegato >= 0 && row[colAllegato]) ? row[colAllegato].toString().trim() : "",
+            allegatoDriveUrl: (colAllegatoDrive >= 0 && row[colAllegatoDrive]) ? row[colAllegatoDrive].toString().trim() : ""
           };
           break;
         }
@@ -428,6 +456,22 @@ function buildSchedaHtmlOutput(prelievo, dettagli) {
     }
   }
 
+  let relazioneHtml = "";
+  if (prelievo.relazione || prelievo.allegatoNome) {
+    relazioneHtml = '<div class="relazione-box">' +
+      '<div class="relazione-title">📖 Relazione di Esplorazione / Uscita</div>' +
+      ((prelievo.relazioneAutore || prelievo.relazioneData) 
+        ? '<div class="relazione-meta">✍️ ' + escapeHtml(prelievo.relazioneAutore) + (prelievo.relazioneData ? ' • 📅 ' + escapeHtml(prelievo.relazioneData) : '') + '</div>' 
+        : '') +
+      (prelievo.relazione ? '<div class="relazione-body">' + escapeHtml(prelievo.relazione).replace(/\n/g, '<br>') + '</div>' : '') +
+      (prelievo.allegatoNome 
+        ? '<div class="relazione-attachment">📎 Documento Allegato: <strong>' + escapeHtml(prelievo.allegatoNome) + '</strong>' + 
+          (prelievo.allegatoDriveUrl ? ' <a href="' + escapeHtml(prelievo.allegatoDriveUrl) + '" target="_blank" class="btn-attachment">Visualizza</a>' : '') + 
+          '</div>' 
+        : '') +
+      '</div>';
+  }
+
   return '<!DOCTYPE html><html><head><meta charset="utf-8">' +
     '<meta name="viewport" content="width=device-width, initial-scale=1">' +
     '<title>' + escapeHtml(prelievo.luogoGrotta) + ' - Speleo Club Roma</title>' +
@@ -452,6 +496,12 @@ function buildSchedaHtmlOutput(prelievo, dettagli) {
     '.meta-label { font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; margin-bottom: 2px; }' +
     '.meta-value { font-size: 14px; font-weight: 600; color: #1e293b; }' +
     '.note-box { background: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px; padding: 10px 14px; margin-bottom: 20px; font-size: 13px; color: #78350f; }' +
+    '.relazione-box { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 14px 18px; margin-bottom: 20px; }' +
+    '.relazione-title { font-size: 14px; font-weight: 700; color: #166534; margin-bottom: 6px; }' +
+    '.relazione-meta { font-size: 12px; color: #15803d; font-weight: 600; margin-bottom: 8px; }' +
+    '.relazione-body { font-size: 13.5px; color: #14532d; line-height: 1.6; }' +
+    '.relazione-attachment { margin-top: 10px; padding-top: 8px; border-top: 1px solid #dcfce7; font-size: 12px; color: #166534; }' +
+    '.btn-attachment { display: inline-block; margin-left: 8px; padding: 2px 8px; background: #16a34a; color: white; border-radius: 4px; text-decoration: none; font-weight: 600; font-size: 11px; }' +
     '.section-title { font-size: 14px; font-weight: 700; color: #334155; margin: 24px 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px; display: flex; justify-content: space-between; align-items: center; }' +
     'table { width: 100%; border-collapse: collapse; font-size: 13px; }' +
     'th { background: #f1f5f9; text-align: left; padding: 10px 8px; font-weight: 700; color: #475569; font-size: 11px; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }' +
@@ -488,6 +538,7 @@ function buildSchedaHtmlOutput(prelievo, dettagli) {
     (prelievo.operatore ? '<div><div class="meta-label">Operatore Magazzino</div><div class="meta-value">🏷️ ' + escapeHtml(prelievo.operatore) + '</div></div>' : '') +
     '</div>' +
     (prelievo.note ? '<div class="note-box"><strong>Note scheda:</strong> ' + escapeHtml(prelievo.note) + '</div>' : '') +
+    relazioneHtml +
     '<div class="section-title"><span>Materiali Prelevati (' + dettagli.length + ' voci)</span></div>' +
     '<table><thead><tr><th>Categoria</th><th>Descrizione</th><th style="text-align:right;">Quantità</th><th style="text-align:right;">Rientro</th></tr></thead>' +
     '<tbody>' + righeHtml + '</tbody></table>' +
@@ -596,6 +647,11 @@ function syncPrelievi(sheet, prelievi, tuttiDettagli) {
   const colOperatore = ensureColumn("Operatore", ["operatore", "operatore rientro", "operatore_rientro"]);
   const colEmailMag = ensureColumn("Email Magazzinieri", ["email magazzinieri", "email_magazzinieri", "cc"]);
   const colParere = ensureColumn("Note / Parere", ["parere", "note / parere", "note/parere", "note"]);
+  const colRelazione = ensureColumn("Relazione", ["relazione", "relazione_testo", "testo relazione", "relazione uscita"]);
+  const colRelAutore = ensureColumn("Autore Relazione", ["autore relazione", "relazione_autore", "autore_relazione"]);
+  const colRelData = ensureColumn("Data Relazione", ["data relazione", "relazione_data", "data_relazione"]);
+  const colAllegato = ensureColumn("Documento Allegato", ["documento allegato", "allegato_nome", "allegato", "file allegato"]);
+  const colAllegatoDrive = ensureColumn("Link Drive Allegato", ["link drive allegato", "allegato_drive_url", "drive allegato"]);
   const colNotifica = ensureColumn("Notifica Inviata", ["notifica inviata", "notifica", "email_inviata"]);
   const colAggiornamento = ensureColumn("Ultimo Aggiornamento", ["ultimo aggiornamento", "aggiornamento"]);
 
@@ -641,6 +697,11 @@ function syncPrelievi(sheet, prelievi, tuttiDettagli) {
     rowValues[colOperatore] = p.operatore_rientro || "";
     rowValues[colEmailMag] = p.email_magazzinieri || "";
     rowValues[colParere] = p.parere || "";
+    rowValues[colRelazione] = p.relazione_testo || "";
+    rowValues[colRelAutore] = p.relazione_autore || "";
+    rowValues[colRelData] = p.relazione_data || "";
+    rowValues[colAllegato] = p.allegato_nome || "";
+    rowValues[colAllegatoDrive] = p.allegato_drive_url || "";
     rowValues[colNotifica] = (notificaGiaInviata || inviataOra) ? "SI" : "NO";
     rowValues[colAggiornamento] = nowStr;
 
@@ -838,7 +899,7 @@ function setupSheetsIfNeeded(ss) {
   if (!sheetP) {
     sheetP = ss.insertSheet(SHEET_PRELIEVI);
     const headersP = [
-      ["ID Prelievo", "Data Prelievo", "Luogo / Grotta", "Responsabile", "Stato", "Data Riconsegna", "Operatore", "Email Magazzinieri", "Note / Parere", "Notifica Inviata", "Ultimo Aggiornamento"]
+      ["ID Prelievo", "Data Prelievo", "Luogo / Grotta", "Responsabile", "Stato", "Data Riconsegna", "Operatore", "Email Magazzinieri", "Note / Parere", "Relazione", "Autore Relazione", "Data Relazione", "Documento Allegato", "Link Drive Allegato", "Notifica Inviata", "Ultimo Aggiornamento"]
     ];
     styleHeader(sheetP, headersP[0].length);
     sheetP.getRange(1, 1, 1, headersP[0].length).setValues(headersP);
@@ -920,6 +981,11 @@ function correggiEFormattaTuttiIFogli() {
     "Operatore",
     "Email Magazzinieri",
     "Note / Parere",
+    "Relazione",
+    "Autore Relazione",
+    "Data Relazione",
+    "Documento Allegato",
+    "Link Drive Allegato",
     "Notifica Inviata",
     "Ultimo Aggiornamento"
   ];
@@ -938,6 +1004,11 @@ function correggiEFormattaTuttiIFogli() {
     const colOperatore = findColIndex(oldHeadersP, ["operatore", "operatore rientro", "operatore_rientro"], -1);
     const colEmailMag = findColIndex(oldHeadersP, ["email magazzinieri", "email_magazzinieri", "cc"], -1);
     const colParere = findColIndex(oldHeadersP, ["parere", "note / parere", "note/parere", "note"], -1);
+    const colRelazione = findColIndex(oldHeadersP, ["relazione", "relazione_testo", "testo relazione", "relazione uscita"], -1);
+    const colRelAutore = findColIndex(oldHeadersP, ["autore relazione", "relazione_autore", "autore_relazione"], -1);
+    const colRelData = findColIndex(oldHeadersP, ["data relazione", "relazione_data", "data_relazione"], -1);
+    const colAllegato = findColIndex(oldHeadersP, ["documento allegato", "allegato_nome", "allegato", "file allegato"], -1);
+    const colAllegatoDrive = findColIndex(oldHeadersP, ["link drive allegato", "allegato_drive_url", "drive allegato"], -1);
     const colNotifica = findColIndex(oldHeadersP, ["notifica inviata", "notifica", "email_inviata"], -1);
     const colAgg = findColIndex(oldHeadersP, ["ultimo aggiornamento", "aggiornamento"], -1);
 
@@ -969,6 +1040,14 @@ function correggiEFormattaTuttiIFogli() {
         dataRientroIso = rawRiconsegna.toString().trim();
       }
 
+      let relDataIso = "";
+      const rawRelData = (colRelData >= 0) ? row[colRelData] : null;
+      if (rawRelData instanceof Date) {
+        relDataIso = rawRelData.toISOString();
+      } else if (rawRelData) {
+        relDataIso = rawRelData.toString().trim();
+      }
+
       rowsP.push([
         id,
         dataIso,
@@ -979,6 +1058,11 @@ function correggiEFormattaTuttiIFogli() {
         (colOperatore >= 0 && row[colOperatore]) ? row[colOperatore].toString().trim() : "",
         (colEmailMag >= 0 && row[colEmailMag]) ? row[colEmailMag].toString().trim() : "",
         (colParere >= 0 && row[colParere]) ? row[colParere].toString().trim() : "",
+        (colRelazione >= 0 && row[colRelazione]) ? row[colRelazione].toString().trim() : "",
+        (colRelAutore >= 0 && row[colRelAutore]) ? row[colRelAutore].toString().trim() : "",
+        relDataIso,
+        (colAllegato >= 0 && row[colAllegato]) ? row[colAllegato].toString().trim() : "",
+        (colAllegatoDrive >= 0 && row[colAllegatoDrive]) ? row[colAllegatoDrive].toString().trim() : "",
         (colNotifica >= 0 && row[colNotifica]) ? row[colNotifica].toString().trim() : "NO",
         (colAgg >= 0 && row[colAgg]) ? row[colAgg].toString().trim() : Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss")
       ]);

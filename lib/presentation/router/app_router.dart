@@ -2,6 +2,7 @@ import 'package:go_router/go_router.dart';
 import '../screens/dettaglio_prelievo_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/nuovo_prelievo_screen.dart';
+import '../screens/relazione_screen.dart';
 import '../screens/rientro_materiale_screen.dart';
 import '../screens/storico_prelievi_screen.dart';
 
@@ -28,6 +29,13 @@ final appRouter = GoRouter(
           builder: (context, state) {
             final prelievoId = state.pathParameters['id']!;
             return DettaglioPrelievoScreen(prelievoId: prelievoId);
+          },
+        ),
+        GoRoute(
+          path: 'prelievo/:id/relazione',
+          builder: (context, state) {
+            final prelievoId = state.pathParameters['id']!;
+            return RelazioneScreen(prelievoId: prelievoId);
           },
         ),
         GoRoute(

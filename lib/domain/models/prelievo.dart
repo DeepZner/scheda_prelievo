@@ -16,6 +16,12 @@ class Prelievo {
   final DateTime? dataRientro;
   final String? operatoreRientro;
   final String? emailMagazzinieri;
+  final String? relazioneTesto;
+  final String? relazioneAutore;
+  final DateTime? relazioneData;
+  final String? allegatoPath;
+  final String? allegatoNome;
+  final String? allegatoDriveUrl;
 
   const Prelievo({
     required this.id,
@@ -29,6 +35,12 @@ class Prelievo {
     this.dataRientro,
     this.operatoreRientro,
     this.emailMagazzinieri,
+    this.relazioneTesto,
+    this.relazioneAutore,
+    this.relazioneData,
+    this.allegatoPath,
+    this.allegatoNome,
+    this.allegatoDriveUrl,
   });
 
   /// Un prelievo è modificabile solo se è in attesa materiale e la spunta non è ancora iniziata
@@ -62,6 +74,16 @@ class Prelievo {
       .where((d) => d.isMetri)
       .fold<int>(0, (sum, d) => sum + d.quantitaPrelevata);
 
+  /// Indica se la scheda include una relazione di uscita (testuale o allegato)
+  bool get haRelazione =>
+      (relazioneTesto != null && relazioneTesto!.trim().isNotEmpty) ||
+      haAllegato;
+
+  /// Indica se è presente un file/documento allegato (locale o salvato su Drive)
+  bool get haAllegato =>
+      (allegatoPath != null && allegatoPath!.trim().isNotEmpty) ||
+      (allegatoNome != null && allegatoNome!.trim().isNotEmpty);
+
   Prelievo copyWith({
     String? id,
     DateTime? dataPrelievo,
@@ -74,6 +96,12 @@ class Prelievo {
     DateTime? dataRientro,
     String? operatoreRientro,
     String? emailMagazzinieri,
+    String? relazioneTesto,
+    String? relazioneAutore,
+    DateTime? relazioneData,
+    String? allegatoPath,
+    String? allegatoNome,
+    String? allegatoDriveUrl,
   }) {
     return Prelievo(
       id: id ?? this.id,
@@ -87,6 +115,12 @@ class Prelievo {
       dataRientro: dataRientro ?? this.dataRientro,
       operatoreRientro: operatoreRientro ?? this.operatoreRientro,
       emailMagazzinieri: emailMagazzinieri ?? this.emailMagazzinieri,
+      relazioneTesto: relazioneTesto ?? this.relazioneTesto,
+      relazioneAutore: relazioneAutore ?? this.relazioneAutore,
+      relazioneData: relazioneData ?? this.relazioneData,
+      allegatoPath: allegatoPath ?? this.allegatoPath,
+      allegatoNome: allegatoNome ?? this.allegatoNome,
+      allegatoDriveUrl: allegatoDriveUrl ?? this.allegatoDriveUrl,
     );
   }
 
@@ -102,6 +136,12 @@ class Prelievo {
       'data_rientro': dataRientro?.toIso8601String(),
       'operatore_rientro': operatoreRientro,
       'email_magazzinieri': emailMagazzinieri,
+      'relazione_testo': relazioneTesto,
+      'relazione_autore': relazioneAutore,
+      'relazione_data': relazioneData?.toIso8601String(),
+      'allegato_path': allegatoPath,
+      'allegato_nome': allegatoNome,
+      'allegato_drive_url': allegatoDriveUrl,
     };
   }
 
@@ -123,6 +163,14 @@ class Prelievo {
           : null,
       operatoreRientro: map['operatore_rientro'] as String?,
       emailMagazzinieri: map['email_magazzinieri'] as String?,
+      relazioneTesto: map['relazione_testo'] as String?,
+      relazioneAutore: map['relazione_autore'] as String?,
+      relazioneData: map['relazione_data'] != null
+          ? DateTime.tryParse(map['relazione_data'] as String)
+          : null,
+      allegatoPath: map['allegato_path'] as String?,
+      allegatoNome: map['allegato_nome'] as String?,
+      allegatoDriveUrl: map['allegato_drive_url'] as String?,
     );
   }
 
@@ -141,6 +189,12 @@ class Prelievo {
           dataRientro == other.dataRientro &&
           operatoreRientro == other.operatoreRientro &&
           emailMagazzinieri == other.emailMagazzinieri &&
+          relazioneTesto == other.relazioneTesto &&
+          relazioneAutore == other.relazioneAutore &&
+          relazioneData == other.relazioneData &&
+          allegatoPath == other.allegatoPath &&
+          allegatoNome == other.allegatoNome &&
+          allegatoDriveUrl == other.allegatoDriveUrl &&
           listEquals(dettagli, other.dettagli);
 
   @override
@@ -155,10 +209,16 @@ class Prelievo {
       dataRientro.hashCode ^
       operatoreRientro.hashCode ^
       emailMagazzinieri.hashCode ^
+      relazioneTesto.hashCode ^
+      relazioneAutore.hashCode ^
+      relazioneData.hashCode ^
+      allegatoPath.hashCode ^
+      allegatoNome.hashCode ^
+      allegatoDriveUrl.hashCode ^
       dettagli.hashCode;
 
   @override
   String toString() {
-    return 'Prelievo(id: $id, dataPrelievo: $dataPrelievo, luogoGrotta: $luogoGrotta, responsabile: $responsabile, stato: ${stato.label}, isSynced: $isSynced, dataRientro: $dataRientro, operatore: $operatoreRientro, dettagli: ${dettagli.length})';
+    return 'Prelievo(id: $id, dataPrelievo: $dataPrelievo, luogoGrotta: $luogoGrotta, responsabile: $responsabile, stato: ${stato.label}, isSynced: $isSynced, dataRientro: $dataRientro, operatore: $operatoreRientro, haRelazione: $haRelazione, dettagli: ${dettagli.length})';
   }
 }

@@ -20,7 +20,8 @@ L'app è progettata specificamente per l'uso in ambienti difficili (magazzino in
    - [1. Creazione Scheda Prelievo](#1-creazione-scheda-prelievo-uscita-materiale)
    - [2. Condivisione Scheda (PDF, Web, WhatsApp)](#2-condivisione-scheda)
    - [3. Spunta Rientro Materiale](#3-spunta-rientro-materiale-riconsegna)
-   - [4. Sincronizzazione con Google Sheets](#4-sincronizzazione-con-google-sheets)
+   - [4. Relazione di Esplorazione & Allegati](#4-relazione-di-esplorazione--allegati-documenti)
+   - [5. Sincronizzazione con Google Sheets](#5-sincronizzazione-con-google-sheets)
 3. [Architettura e Stack Tecnologico](#-architettura-e-stack-tecnologico)
 4. [Schema del Database Locale (SQLite)](#-schema-del-database-locale-sqlite)
 5. [Integrazione Google Sheets & Backup Drive](#-integrazione-google-sheets--backup-drive)
@@ -75,10 +76,24 @@ Quando il materiale torna in magazzino:
 4. Inserisci il nome dell'**Operatore di Magazzino** che riceve il materiale.
 5. Conferma: lo stato passa automaticamente a **"Materiale rientrato"** oppure a **"Materiale mancante"** se sono state registrate differenze.
 
-### 4. Sincronizzazione con Google Sheets
+### 4. Relazione di Esplorazione & Allegati Documenti
+Per documentare l'attività speleologica, i rilievi o le scoperte effettuate:
+1. Dalla vista di dettaglio di qualsiasi scheda (sia in corso che a **materiale già restituito**):
+   - Tocca **"AGGIUNGI RELAZIONE / ALLEGATO"** (o *"MODIFICA RELAZIONE / ALLEGATO"*).
+2. **Relazione Testuale**:
+   - Compila l'autore della relazione e la data.
+   - Scrivi le note descrittive dell'esplorazione (es. prosecuzione rilievo, condizioni armo, sifoni superati).
+3. **Allegato Documento / Rilievo (fino a 20 MB)**:
+   - Tocca **"SELEZIONA DOCUMENTO O RILIEVO"**.
+   - Supporta documenti **PDF**, **Word** (`.doc`, `.docx`), **OpenOffice / LibreOffice** (`.odt`, `.ods`, `.odp`), **Testo** (`.txt`, `.rtf`) e **Immagini** (`.jpg`, `.png`).
+   - Il documento viene protetto e copiato in modo permanente nella memoria locale sandbox dell'app (`app_documents/relazioni/<id>/`) per la consultazione offline senza rischio di cancellazione.
+   - Dalla scheda puoi aprire direttamente il file con l'app di sistema toccando **"Apri"**.
+4. La relazione e l'indicazione dell'allegato vengono automaticamente inclusi nella **Scheda PDF Ufficiale SCR** e nel **Web Viewer online**.
+
+### 5. Sincronizzazione con Google Sheets
 Tocca l'icona della **nuvoletta** nella barra superiore dell'app:
 - Mostra il numero di record locali ancora da sincronizzare (`is_synced = 0`).
-- Premi **"INVIA DATI A GOOGLE SHEETS"**: invia tutte le testate e i dettagli modificati al foglio cloud di Google Drive.
+- Premi **"INVIA DATI A GOOGLE SHEETS"**: invia tutte le testate, i dettagli e le relazioni al foglio cloud di Google Drive.
 - Premi **"SCARICA PRELIEVI DA SHEETS"**: scarica sul dispositivo le schede create o aggiornate da altri magazzinieri.
 - Tocca l'icona dell'ingranaggio per inserire o testare l'URL della Web App.
 
@@ -126,6 +141,12 @@ lib/
 | `parere` | TEXT | Note generali di uscita |
 | `data_rientro` | TEXT (ISO 8601) | Data e ora di avvenuta riconsegna |
 | `operatore_rientro`| TEXT | Nominativo del magazziniere che ha verificato il rientro |
+| `relazione_testo` | TEXT | Testo della relazione di uscita o esplorazione |
+| `relazione_autore`| TEXT | Autore della relazione |
+| `relazione_data` | TEXT (ISO 8601) | Data della relazione |
+| `allegato_path` | TEXT | Percorso locale sandbox del documento allegato |
+| `allegato_nome` | TEXT | Nome originale del documento allegato (PDF, Word, OpenOffice, ecc.) |
+| `allegato_drive_url`| TEXT | Link al file caricato su Google Drive |
 | `is_synced` | INTEGER (0 o 1) | Flag per la coda di sincronizzazione |
 
 ### 2. Tabella `dettagli_prelievo` (Righe Articoli)

@@ -131,6 +131,31 @@ class PrelieviController extends StateNotifier<AsyncValue<void>> {
     });
   }
 
+  Future<void> salvaRelazione({
+    required String prelievoId,
+    required String? relazioneTesto,
+    required String? relazioneAutore,
+    required DateTime? relazioneData,
+    required String? allegatoPath,
+    required String? allegatoNome,
+    String? allegatoDriveUrl,
+  }) async {
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() async {
+      final repository = _ref.read(prelievoRepositoryProvider);
+      await repository.salvaRelazione(
+        prelievoId: prelievoId,
+        relazioneTesto: relazioneTesto,
+        relazioneAutore: relazioneAutore,
+        relazioneData: relazioneData,
+        allegatoPath: allegatoPath,
+        allegatoNome: allegatoNome,
+        allegatoDriveUrl: allegatoDriveUrl,
+      );
+      _invalidateLists();
+    });
+  }
+
   Future<void> eliminaPrelievo(String prelievoId) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {

@@ -31,6 +31,15 @@ abstract class IPrelievoRepository {
     String? operatoreRientro,
     String? emailMagazzinieri,
   });
+  Future<void> salvaRelazione({
+    required String prelievoId,
+    required String? relazioneTesto,
+    required String? relazioneAutore,
+    required DateTime? relazioneData,
+    required String? allegatoPath,
+    required String? allegatoNome,
+    String? allegatoDriveUrl,
+  });
   Future<List<Prelievo>> getPrelieviDaSincronizzare();
   Future<void> markPrelievoAsSynced(String prelievoId);
   Future<void> markDettaglioAsSynced(String idDettaglio);

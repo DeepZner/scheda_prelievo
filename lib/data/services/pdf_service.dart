@@ -86,6 +86,10 @@ class PdfService {
           _buildMaterialiTable(prelievo.dettagli),
           pw.SizedBox(height: 14),
           _buildTotaliSummary(totPezzi, totMetri, totMatasse),
+          if (prelievo.haRelazione || prelievo.haAllegato) ...[
+            pw.SizedBox(height: 14),
+            _buildRelazioneBox(prelievo),
+          ],
           pw.SizedBox(height: 24),
           _buildFirmeBox(prelievo),
         ],
@@ -428,6 +432,89 @@ class PdfService {
                 fontSize: 9.5,
                 fontWeight: pw.FontWeight.bold,
                 color: PdfColors.deepOrange900,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget _buildRelazioneBox(Prelievo prelievo) {
+    final dataRelFormattata = prelievo.relazioneData != null
+        ? '${prelievo.relazioneData!.day.toString().padLeft(2, '0')}/${prelievo.relazioneData!.month.toString().padLeft(2, '0')}/${prelievo.relazioneData!.year}'
+        : null;
+
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(10),
+      decoration: pw.BoxDecoration(
+        color: PdfColors.grey50,
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+        border: pw.Border.all(color: PdfColors.blueGrey200, width: 0.8),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(
+                'RELAZIONE DI ESPLORAZIONE / USCITA',
+                style: pw.TextStyle(
+                  fontSize: 10,
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.blueGrey800,
+                ),
+              ),
+              if (dataRelFormattata != null)
+                pw.Text(
+                  'Data: $dataRelFormattata',
+                  style: const pw.TextStyle(fontSize: 8.5, color: PdfColors.grey700),
+                ),
+            ],
+          ),
+          if (prelievo.relazioneAutore != null && prelievo.relazioneAutore!.trim().isNotEmpty) ...[
+            pw.SizedBox(height: 3),
+            pw.Text(
+              'Autore: ${prelievo.relazioneAutore}',
+              style: pw.TextStyle(
+                fontSize: 8.5,
+                fontWeight: pw.FontWeight.bold,
+                color: PdfColors.grey800,
+              ),
+            ),
+          ],
+          if (prelievo.relazioneTesto != null && prelievo.relazioneTesto!.trim().isNotEmpty) ...[
+            pw.SizedBox(height: 6),
+            pw.Text(
+              prelievo.relazioneTesto!,
+              style: const pw.TextStyle(
+                fontSize: 8.5,
+                color: PdfColors.black,
+                lineSpacing: 1.3,
+              ),
+            ),
+          ],
+          if (prelievo.haAllegato) ...[
+            pw.SizedBox(height: 6),
+            pw.Container(
+              padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: const pw.BoxDecoration(
+                color: PdfColors.grey200,
+                borderRadius: pw.BorderRadius.all(pw.Radius.circular(4)),
+              ),
+              child: pw.Row(
+                mainAxisSize: pw.MainAxisSize.min,
+                children: [
+                  pw.Text(
+                    'Documento Allegato: ',
+                    style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.grey800),
+                  ),
+                  pw.Text(
+                    prelievo.allegatoNome ?? 'Documento',
+                    style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey800),
+                  ),
+                ],
               ),
             ),
           ],

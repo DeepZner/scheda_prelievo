@@ -370,5 +370,65 @@ void main() {
       expect(prelievo.totaleMatasse, 2);
       expect(prelievo.totaleMetri, 80);
     });
+
+    test('Prelievo relazione and allegato serialization, copyWith, and getters', () {
+      final now = DateTime.now();
+      final relData = now.subtract(const Duration(days: 1));
+
+      final prel = Prelievo(
+        id: 'p-rel-1',
+        dataPrelievo: now,
+        luogoGrotta: 'Grotta di Monte Cucco',
+        responsabile: 'Marco Polo',
+        stato: StatoPrelievo.rientrato,
+        relazioneTesto: 'Esplorata galleria fossile a -350m.',
+        relazioneAutore: 'Gianni Speleo',
+        relazioneData: relData,
+        allegatoPath: '/app/doc/relazione.pdf',
+        allegatoNome: 'relazione_uscita.pdf',
+        allegatoDriveUrl: 'https://drive.google.com/file/d/123/view',
+      );
+
+      expect(prel.haRelazione, isTrue);
+      expect(prel.haAllegato, isTrue);
+
+      final map = prel.toMap();
+      expect(map['relazione_testo'], 'Esplorata galleria fossile a -350m.');
+      expect(map['relazione_autore'], 'Gianni Speleo');
+      expect(map['relazione_data'], relData.toIso8601String());
+      expect(map['allegato_path'], '/app/doc/relazione.pdf');
+      expect(map['allegato_nome'], 'relazione_uscita.pdf');
+      expect(map['allegato_drive_url'], 'https://drive.google.com/file/d/123/view');
+
+      final fromMap = Prelievo.fromMap(map);
+      expect(fromMap.id, prel.id);
+      expect(fromMap.relazioneTesto, prel.relazioneTesto);
+      expect(fromMap.relazioneAutore, prel.relazioneAutore);
+      expect(fromMap.allegatoNome, prel.allegatoNome);
+      expect(fromMap.allegatoPath, prel.allegatoPath);
+      expect(fromMap.allegatoDriveUrl, prel.allegatoDriveUrl);
+      expect(fromMap.haRelazione, isTrue);
+      expect(fromMap.haAllegato, isTrue);
+
+      // Test vuoto
+      final emptyRel = Prelievo(
+        id: 'p-empty',
+        dataPrelievo: now,
+        luogoGrotta: 'Grotta Vuota',
+        responsabile: 'Test',
+      );
+      expect(emptyRel.haRelazione, isFalse);
+      expect(emptyRel.haAllegato, isFalse);
+
+      // Test copyWith
+      final updated = emptyRel.copyWith(
+        relazioneTesto: 'Nuova relazione',
+        allegatoNome: 'foto.jpg',
+      );
+      expect(updated.haRelazione, isTrue);
+      expect(updated.haAllegato, isTrue);
+      expect(updated.relazioneTesto, 'Nuova relazione');
+      expect(updated.allegatoNome, 'foto.jpg');
+    });
   });
 }

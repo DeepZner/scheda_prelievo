@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../domain/models/prelievo.dart';
 import '../../domain/models/stato_prelievo.dart';
+import '../../data/services/allegati_service.dart';
 import '../../data/services/pdf_service.dart';
 import '../providers/prelievi_provider.dart';
 import '../providers/sync_provider.dart';
@@ -287,6 +288,303 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
         context.pop();
       }
     }
+  }
+
+  IconData _getIconForFile(String? fileName) {
+    if (fileName == null) return Icons.attach_file;
+    final ext = fileName.split('.').last.toLowerCase();
+    switch (ext) {
+      case 'pdf':
+        return Icons.picture_as_pdf;
+      case 'doc':
+      case 'docx':
+      case 'odt':
+      case 'rtf':
+      case 'txt':
+        return Icons.description;
+      case 'xls':
+      case 'xlsx':
+      case 'ods':
+      case 'csv':
+        return Icons.table_chart;
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+        return Icons.image;
+      default:
+        return Icons.insert_drive_file;
+    }
+  }
+
+  Color _getColorForFile(String? fileName) {
+    if (fileName == null) return Colors.blueGrey;
+    final ext = fileName.split('.').last.toLowerCase();
+    switch (ext) {
+      case 'pdf':
+        return const Color(0xFFDC2626);
+      case 'doc':
+      case 'docx':
+        return const Color(0xFF2563EB);
+      case 'odt':
+      case 'ods':
+        return const Color(0xFF0D9488);
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+        return const Color(0xFFEA580C);
+      default:
+        return const Color(0xFF4B5563);
+    }
+  }
+
+  Widget _buildRelazioneCard(BuildContext context, Prelievo p) {
+    final theme = Theme.of(context);
+    final haContenuto = p.haRelazione || p.haAllegato;
+    final isAnnullato = p.stato == StatoPrelievo.annullato;
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: haContenuto
+              ? theme.colorScheme.primary.withAlpha(80)
+              : Colors.grey.shade300,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: haContenuto
+                        ? theme.colorScheme.primaryContainer
+                        : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    Icons.menu_book_rounded,
+                    color: haContenuto
+                        ? theme.colorScheme.primary
+                        : Colors.grey.shade700,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Relazione di Esplorazione / Uscita',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        haContenuto
+                            ? 'Documentazione e note post-uscita'
+                            : 'Nessuna relazione allegata',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (haContenuto && !isAnnullato)
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined),
+                    tooltip: 'Modifica relazione o allegato',
+                    onPressed: () => context.push('/prelievo/${p.id}/relazione'),
+                  ),
+              ],
+            ),
+            if (haContenuto) ...[
+              const Divider(height: 20),
+              if ((p.relazioneAutore != null && p.relazioneAutore!.isNotEmpty) ||
+                  p.relazioneData != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      if (p.relazioneAutore != null && p.relazioneAutore!.isNotEmpty) ...[
+                        const Icon(Icons.person_outline, size: 16, color: Colors.blueGrey),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            p.relazioneAutore!,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.blueGrey,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                      if (p.relazioneAutore != null &&
+                          p.relazioneAutore!.isNotEmpty &&
+                          p.relazioneData != null)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 6),
+                          child: Text('•', style: TextStyle(color: Colors.grey)),
+                        ),
+                      if (p.relazioneData != null) ...[
+                        const Icon(Icons.event_note, size: 16, color: Colors.blueGrey),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${p.relazioneData!.day.toString().padLeft(2, '0')}/${p.relazioneData!.month.toString().padLeft(2, '0')}/${p.relazioneData!.year}',
+                          style: const TextStyle(fontSize: 13, color: Colors.blueGrey),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              if (p.relazioneTesto != null && p.relazioneTesto!.isNotEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest.withAlpha(100),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: SelectableText(
+                    p.relazioneTesto!,
+                    style: const TextStyle(fontSize: 14, height: 1.4),
+                  ),
+                ),
+              if (p.haAllegato) ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 20,
+                        backgroundColor:
+                            _getColorForFile(p.allegatoNome).withAlpha(30),
+                        child: Icon(
+                          _getIconForFile(p.allegatoNome),
+                          color: _getColorForFile(p.allegatoNome),
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              p.allegatoNome ?? 'Documento Allegato',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const Text(
+                              'Allegato locale offline',
+                              style: TextStyle(fontSize: 11, color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        height: 48,
+                        child: FilledButton.tonalIcon(
+                          icon: const Icon(Icons.open_in_new, size: 18),
+                          label: const Text('Apri'),
+                          onPressed: () async {
+                            if (p.allegatoPath != null) {
+                              final res =
+                                  await AllegatiService.apriAllegato(p.allegatoPath!);
+                              if (res.type != ResultType.done &&
+                                  res.message.isNotEmpty &&
+                                  context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Apertura: ${res.message}'),
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              if (!isAnnullato) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    icon: const Icon(Icons.edit_note, size: 22),
+                    label: const Text(
+                      'MODIFICA RELAZIONE / ALLEGATO',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    onPressed: () => context.push('/prelievo/${p.id}/relazione'),
+                  ),
+                ),
+              ],
+            ] else ...[
+              const SizedBox(height: 10),
+              Text(
+                'Aggiungi note sull\'esplorazione, una relazione di uscita o un documento allegato (PDF, Word, OpenOffice, immagini fino a 20MB). Disponibile anche a materiale riconsegnato.',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade700,
+                  height: 1.3,
+                ),
+              ),
+              if (!isAnnullato) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    icon: const Icon(Icons.add_circle_outline, size: 20),
+                    label: const Text(
+                      'AGGIUNGI RELAZIONE / ALLEGATO',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    onPressed: () => context.push('/prelievo/${p.id}/relazione'),
+                  ),
+                ),
+              ],
+            ],
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -619,6 +917,9 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
               ],
+
+              _buildRelazioneCard(context, prelievo),
+              const SizedBox(height: 16),
 
               Text(
                 'Materiali (${prelievo.dettagli.length} voci • $totalePezziFisici pezzi${riepilogoMateriali.isNotEmpty ? ' • $riepilogoMateriali' : ''})',

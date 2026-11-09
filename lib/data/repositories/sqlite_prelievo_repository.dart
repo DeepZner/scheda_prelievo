@@ -276,6 +276,33 @@ class SqlitePrelievoRepository implements IPrelievoRepository {
   }
 
   @override
+  Future<void> salvaRelazione({
+    required String prelievoId,
+    required String? relazioneTesto,
+    required String? relazioneAutore,
+    required DateTime? relazioneData,
+    required String? allegatoPath,
+    required String? allegatoNome,
+    String? allegatoDriveUrl,
+  }) async {
+    final db = await _dbHelper.database;
+    await db.update(
+      DatabaseHelper.tablePrelievi,
+      {
+        'relazione_testo': relazioneTesto,
+        'relazione_autore': relazioneAutore,
+        'relazione_data': relazioneData?.toIso8601String(),
+        'allegato_path': allegatoPath,
+        'allegato_nome': allegatoNome,
+        'allegato_drive_url': allegatoDriveUrl,
+        'is_synced': 0,
+      },
+      where: 'id = ?',
+      whereArgs: [prelievoId],
+    );
+  }
+
+  @override
   Future<List<Prelievo>> getPrelieviDaSincronizzare() async {
     final db = await _dbHelper.database;
     final prelieviMaps = await db.query(

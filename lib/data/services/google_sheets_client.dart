@@ -244,6 +244,21 @@ class GoogleSheetsClient {
               emailMagazzinieri: map['email_magazzinieri']?.toString().isNotEmpty == true
                   ? map['email_magazzinieri']?.toString()
                   : null,
+              relazioneTesto: map['relazione_testo']?.toString().isNotEmpty == true
+                  ? map['relazione_testo']?.toString()
+                  : null,
+              relazioneAutore: map['relazione_autore']?.toString().isNotEmpty == true
+                  ? map['relazione_autore']?.toString()
+                  : null,
+              relazioneData: map['relazione_data']?.toString().isNotEmpty == true
+                  ? DateTime.tryParse(map['relazione_data'].toString())
+                  : null,
+              allegatoNome: map['allegato_nome']?.toString().isNotEmpty == true
+                  ? map['allegato_nome']?.toString()
+                  : null,
+              allegatoDriveUrl: map['allegato_drive_url']?.toString().isNotEmpty == true
+                  ? map['allegato_drive_url']?.toString()
+                  : null,
             );
           }).where((p) => p.id.isNotEmpty).toList();
 

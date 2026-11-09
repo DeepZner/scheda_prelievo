@@ -94,6 +94,24 @@ class DatabaseHelper {
       if (!colNames.contains('email_magazzinieri')) {
         await db.execute('ALTER TABLE $tablePrelievi ADD COLUMN email_magazzinieri TEXT');
       }
+      if (!colNames.contains('relazione_testo')) {
+        await db.execute('ALTER TABLE $tablePrelievi ADD COLUMN relazione_testo TEXT');
+      }
+      if (!colNames.contains('relazione_autore')) {
+        await db.execute('ALTER TABLE $tablePrelievi ADD COLUMN relazione_autore TEXT');
+      }
+      if (!colNames.contains('relazione_data')) {
+        await db.execute('ALTER TABLE $tablePrelievi ADD COLUMN relazione_data TEXT');
+      }
+      if (!colNames.contains('allegato_path')) {
+        await db.execute('ALTER TABLE $tablePrelievi ADD COLUMN allegato_path TEXT');
+      }
+      if (!colNames.contains('allegato_nome')) {
+        await db.execute('ALTER TABLE $tablePrelievi ADD COLUMN allegato_nome TEXT');
+      }
+      if (!colNames.contains('allegato_drive_url')) {
+        await db.execute('ALTER TABLE $tablePrelievi ADD COLUMN allegato_drive_url TEXT');
+      }
 
       // Controlla se il catalogo contiene già il catalogo reale ufficiale (C_001)
       final res = await db.rawQuery(
@@ -124,7 +142,13 @@ class DatabaseHelper {
         is_synced INTEGER NOT NULL DEFAULT 0,
         data_rientro TEXT,
         operatore_rientro TEXT,
-        email_magazzinieri TEXT
+        email_magazzinieri TEXT,
+        relazione_testo TEXT,
+        relazione_autore TEXT,
+        relazione_data TEXT,
+        allegato_path TEXT,
+        allegato_nome TEXT,
+        allegato_drive_url TEXT
       )
     ''');
 
