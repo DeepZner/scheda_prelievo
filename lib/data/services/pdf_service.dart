@@ -14,18 +14,22 @@ class PdfService {
       author: 'Speleo Club Roma',
     );
 
-    // Carica il logo se disponibile
-    pw.MemoryImage? logoImage;
+    // Carica il logo principale del Pipistrello (SCR)
+    pw.MemoryImage? logoPipistrello;
+    try {
+      final logoBytes = await rootBundle.load('assets/images/logo_scr.png');
+      logoPipistrello = pw.MemoryImage(logoBytes.buffer.asUint8List());
+    } catch (_) {
+      logoPipistrello = null;
+    }
+
+    // Carica il logo secondario del Magazzino (Corda e spunta)
+    pw.MemoryImage? logoMagazzinoCorda;
     try {
       final logoBytes = await rootBundle.load('assets/images/app_logo.png');
-      logoImage = pw.MemoryImage(logoBytes.buffer.asUint8List());
+      logoMagazzinoCorda = pw.MemoryImage(logoBytes.buffer.asUint8List());
     } catch (_) {
-      try {
-        final logoBytes = await rootBundle.load('assets/images/logo_scr.png');
-        logoImage = pw.MemoryImage(logoBytes.buffer.asUint8List());
-      } catch (_) {
-        logoImage = null;
-      }
+      logoMagazzinoCorda = null;
     }
 
     final dataFormattata =
@@ -41,9 +45,30 @@ class PdfService {
 
     pdf.addPage(
       pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(32),
-        header: (context) => _buildHeader(prelievo, logoImage, dataFormattata),
+        pageTheme: pw.PageTheme(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(32),
+          buildBackground: (context) {
+            if (logoMagazzinoCorda == null) return pw.SizedBox.shrink();
+            // Sovraimpressione watermark centrata con opacità leggera
+            return pw.Center(
+              child: pw.Opacity(
+                opacity: 0.07,
+                child: pw.Image(
+                  logoMagazzinoCorda,
+                  width: 280,
+                  height: 280,
+                ),
+              ),
+            );
+          },
+        ),
+        header: (context) => _buildHeader(
+          prelievo,
+          logoPipistrello,
+          logoMagazzinoCorda,
+          dataFormattata,
+        ),
         footer: (context) => _buildFooter(context, prelievo),
         build: (context) => [
           pw.SizedBox(height: 12),
@@ -99,7 +124,8 @@ class PdfService {
 
   static pw.Widget _buildHeader(
     Prelievo prelievo,
-    pw.MemoryImage? logoImage,
+    pw.MemoryImage? logoPipistrello,
+    pw.MemoryImage? logoMagazzinoCorda,
     String dataFormattata,
   ) {
     return pw.Container(
@@ -113,10 +139,11 @@ class PdfService {
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         crossAxisAlignment: pw.CrossAxisAlignment.center,
         children: [
+          // Sezione Sinistra: Logo Principale (Pipistrello SCR) + Intestazione Club
           pw.Row(
             children: [
-              if (logoImage != null) ...[
-                pw.Image(logoImage, width: 38, height: 38),
+              if (logoPipistrello != null) ...[
+                pw.Image(logoPipistrello, width: 65, height: 36),
                 pw.SizedBox(width: 10),
               ],
               pw.Column(
@@ -141,29 +168,39 @@ class PdfService {
               ),
             ],
           ),
-          pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.end,
+          // Sezione Destra: Logo Secondario (Magazzino/Corda) + Badge Stato + Data
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.center,
             children: [
-              pw.Container(
-                padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: pw.BoxDecoration(
-                  color: _coloreBackgroundStato(prelievo.stato),
-                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
-                ),
-                child: pw.Text(
-                  prelievo.stato.label.toUpperCase(),
-                  style: pw.TextStyle(
-                    fontSize: 8.5,
-                    fontWeight: pw.FontWeight.bold,
-                    color: _coloreTestoStato(prelievo.stato),
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.end,
+                children: [
+                  pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: pw.BoxDecoration(
+                      color: _coloreBackgroundStato(prelievo.stato),
+                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                    ),
+                    child: pw.Text(
+                      prelievo.stato.label.toUpperCase(),
+                      style: pw.TextStyle(
+                        fontSize: 8.5,
+                        fontWeight: pw.FontWeight.bold,
+                        color: _coloreTestoStato(prelievo.stato),
+                      ),
+                    ),
                   ),
-                ),
+                  pw.SizedBox(height: 3),
+                  pw.Text(
+                    'Data: $dataFormattata',
+                    style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
+                  ),
+                ],
               ),
-              pw.SizedBox(height: 3),
-              pw.Text(
-                'Data: $dataFormattata',
-                style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
-              ),
+              if (logoMagazzinoCorda != null) ...[
+                pw.SizedBox(width: 10),
+                pw.Image(logoMagazzinoCorda, width: 34, height: 34),
+              ],
             ],
           ),
         ],
