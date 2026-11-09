@@ -113,7 +113,7 @@ class SyncStatusButton extends ConsumerWidget {
                     tooltip: 'Configura URL Web App',
                     onPressed: () {
                       Navigator.pop(ctx);
-                      _mostraDialogImpostazioniUrl(context, ref);
+                      mostraDialogImpostazioniUrl(context, ref);
                     },
                   ),
                 ],
@@ -195,7 +195,7 @@ class SyncStatusButton extends ConsumerWidget {
                   onPressed: () async {
                     if (configuredUrl.isEmpty) {
                       Navigator.pop(ctx);
-                      _mostraDialogImpostazioniUrl(context, ref);
+                      mostraDialogImpostazioniUrl(context, ref);
                       return;
                     }
 
@@ -233,7 +233,7 @@ class SyncStatusButton extends ConsumerWidget {
                   onPressed: () async {
                     if (configuredUrl.isEmpty) {
                       Navigator.pop(ctx);
-                      _mostraDialogImpostazioniUrl(context, ref);
+                      mostraDialogImpostazioniUrl(context, ref);
                       return;
                     }
 
@@ -342,7 +342,7 @@ class SyncStatusButton extends ConsumerWidget {
     }
   }
 
-  void _mostraDialogImpostazioniUrl(BuildContext context, WidgetRef ref) {
+  static void mostraDialogImpostazioniUrl(BuildContext context, WidgetRef ref) {
     final currentUrlAsync = ref.read(googleSheetsUrlProvider);
     final textController = TextEditingController(
       text: currentUrlAsync.valueOrNull ?? '',

@@ -59,6 +59,9 @@ class GoogleSheetsClient {
       url = url.substring(1, url.length - 1).trim();
     }
     url = url.replaceAll(RegExp(r'\s+'), '');
+    while (url.endsWith('/')) {
+      url = url.substring(0, url.length - 1);
+    }
     return url;
   }
 
@@ -83,6 +86,23 @@ class GoogleSheetsClient {
         return const GoogleSheetsPingResult(
           isSuccess: false,
           errorMessage: 'URL Web App non valido. Deve iniziare con https://',
+        );
+      }
+
+      if (cleanUrl.contains('docs.google.com/spreadsheets')) {
+        return const GoogleSheetsPingResult(
+          isSuccess: false,
+          errorMessage: 'Hai inserito l\'URL del Foglio Google anziché della Web App!\n'
+              'Nel foglio apri: Estensioni > Apps Script > Distribuisci > Nuova distribuzione (o Gestisci distribuzioni) '
+              'e copia l\'URL che termina con /exec.',
+        );
+      }
+
+      if (cleanUrl.endsWith('/dev')) {
+        return const GoogleSheetsPingResult(
+          isSuccess: false,
+          errorMessage: 'Hai inserito l\'URL di test (/dev) anziché quello ufficiale (/exec).\n'
+              'L\'URL /dev non è accessibile per la condivisione. Usa l\'URL della distribuzione ufficiale che termina con /exec.',
         );
       }
 

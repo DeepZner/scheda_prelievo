@@ -5,9 +5,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../domain/models/prelievo.dart';
 import '../../domain/models/stato_prelievo.dart';
+import '../../data/services/pdf_service.dart';
 import '../providers/prelievi_provider.dart';
 import '../providers/sync_provider.dart';
 import '../widgets/stato_badge.dart';
+import '../widgets/sync_status_button.dart';
 
 class DettaglioPrelievoScreen extends ConsumerWidget {
   final String prelievoId;
@@ -44,6 +46,208 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
       const SnackBar(
         content: Text('Riepilogo copiato negli appunti (pronto per WhatsApp)!'),
       ),
+    );
+  }
+
+  Future<void> _mostraMenuCondivisione(
+    BuildContext context,
+    WidgetRef ref,
+    Prelievo p,
+  ) async {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (bottomSheetCtx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          Icons.share_rounded,
+                          color: Theme.of(context).colorScheme.primary,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Condividi Scheda Prelievo',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              '${p.luogoGrotta} • ${p.responsabile}',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey.shade600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 24),
+                ListTile(
+                  leading: const CircleAvatar(
+                    backgroundColor: Color(0xFFFEE2E2),
+                    child: Icon(Icons.picture_as_pdf, color: Color(0xFFDC2626)),
+                  ),
+                  title: const Text(
+                    'Condividi Scheda PDF (Ufficiale SCR)',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: const Text(
+                    'Documento stampabile offline, apribile da qualsiasi telefono',
+                  ),
+                  onTap: () async {
+                    Navigator.pop(bottomSheetCtx);
+                    try {
+                      await PdfService.sharePdf(p);
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Errore durante la creazione del PDF: $e')),
+                        );
+                      }
+                    }
+                  },
+                ),
+                ListTile(
+                  leading: const CircleAvatar(
+                    backgroundColor: Color(0xFFE0F2FE),
+                    child: Icon(Icons.public, color: Color(0xFF0284C7)),
+                  ),
+                  title: const Text(
+                    'Condividi Link Web (Senza app)',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: const Text(
+                    'Link per consultare la scheda online da Safari, Chrome o PC',
+                  ),
+                  onTap: () async {
+                    Navigator.pop(bottomSheetCtx);
+                    final syncService = ref.read(syncServiceProvider);
+                    final webUrl = await syncService.getWebShareUrl(p.id);
+                    if (webUrl == null) {
+                      if (context.mounted) {
+                        showDialog(
+                          context: context,
+                          builder: (dCtx) => AlertDialog(
+                            title: const Text('URL Web App Mancante'),
+                            content: const Text(
+                              'Per condividere la scheda via web è necessario aver inserito l\'URL della Web App di Google Apps Script (creata sul tuo foglio di Google Drive e terminante con /exec).\n\n'
+                              'Vuoi inserire l\'URL adesso?',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(dCtx),
+                                child: const Text('Annulla'),
+                              ),
+                              FilledButton(
+                                onPressed: () {
+                                  Navigator.pop(dCtx);
+                                  SyncStatusButton.mostraDialogImpostazioniUrl(context, ref);
+                                },
+                                child: const Text('Configura URL'),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                      return;
+                    }
+
+                    final shareText =
+                        '🦇 *SPELEO CLUB ROMA 1959*\n'
+                        '📋 *Scheda Prelievo: ${p.luogoGrotta}*\n'
+                        '👤 Responsabile: ${p.responsabile}\n'
+                        '🔗 Visualizza online senza app:\n$webUrl';
+
+                    await Clipboard.setData(ClipboardData(text: shareText));
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          duration: const Duration(seconds: 4),
+                          content: Text(
+                            p.isSynced
+                                ? 'Link Web copiato negli appunti (pronto per WhatsApp o SMS)!'
+                                : 'Link Web copiato! Ricorda di sincronizzare con Google Sheets affinché la scheda sia visibile online.',
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                ),
+                ListTile(
+                  leading: const CircleAvatar(
+                    backgroundColor: Color(0xFFDCFCE7),
+                    child: Icon(Icons.chat_bubble_outline, color: Color(0xFF16A34A)),
+                  ),
+                  title: const Text(
+                    'Copia Messaggio Testuale (WhatsApp / Chat)',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: const Text(
+                    'Riepilogo completo formattato con emoji negli appunti',
+                  ),
+                  onTap: () {
+                    Navigator.pop(bottomSheetCtx);
+                    _copiaRiepilogoTesto(context, p);
+                  },
+                ),
+                ListTile(
+                  leading: const CircleAvatar(
+                    backgroundColor: Color(0xFFF3F4F6),
+                    child: Icon(Icons.print_outlined, color: Color(0xFF4B5563)),
+                  ),
+                  title: const Text(
+                    'Stampa Scheda PDF',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: const Text(
+                    'Invia direttamente alla stampante Wi-Fi o anteprima di stampa',
+                  ),
+                  onTap: () async {
+                    Navigator.pop(bottomSheetCtx);
+                    try {
+                      await PdfService.printPdf(p);
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Errore di stampa: $e')),
+                        );
+                      }
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -127,8 +331,8 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
                 ? IconButton(
                     visualDensity: VisualDensity.compact,
                     icon: const Icon(Icons.share_outlined),
-                    tooltip: 'Copia riepilogo testuale',
-                    onPressed: () => _copiaRiepilogoTesto(context, p),
+                    tooltip: 'Condividi scheda prelievo',
+                    onPressed: () => _mostraMenuCondivisione(context, ref, p),
                   )
                 : const SizedBox.shrink(),
             orElse: () => const SizedBox.shrink(),

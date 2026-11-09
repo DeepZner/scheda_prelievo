@@ -127,12 +127,37 @@ class SyncService {
 
   /// Legge l'URL configurato della Web App di Google Sheets da SQLite
   Future<String?> getGoogleSheetsUrl() async {
-    return _dbHelper.getSetting(settingGoogleSheetsUrl);
+    final url = await _dbHelper.getSetting(settingGoogleSheetsUrl);
+    if (url != null &&
+        (url.contains('DEV_TEST') ||
+            url.contains('AKfycbz_TEST') ||
+            url.contains('CLEAN_URL'))) {
+      // Pulisce l'impostazione fittizia lasciata accidentalmente dal test unitario
+      await _dbHelper.setSetting(settingGoogleSheetsUrl, '');
+      return null;
+    }
+    return url;
   }
 
   /// Salva l'URL della Web App di Google Sheets in SQLite
   Future<void> setGoogleSheetsUrl(String url) async {
     await _dbHelper.setSetting(settingGoogleSheetsUrl, url.trim());
+  }
+
+  /// Formatta e pulisce un URL di base per la consultazione Web
+  static String formatWebShareUrl(String rawBaseUrl, String prelievoId) {
+    var cleanUrl = GoogleSheetsClient.sanitizeUrl(rawBaseUrl);
+    if (cleanUrl.endsWith('/dev')) {
+      cleanUrl = '${cleanUrl.substring(0, cleanUrl.length - 4)}/exec';
+    }
+    return '$cleanUrl?scheda=$prelievoId';
+  }
+
+  /// Restituisce l'URL di consultazione Web per una specifica scheda prelievo
+  Future<String?> getWebShareUrl(String prelievoId) async {
+    final rawUrl = await getGoogleSheetsUrl();
+    if (rawUrl == null || rawUrl.trim().isEmpty) return null;
+    return formatWebShareUrl(rawUrl, prelievoId);
   }
 
   /// Esegue un ping di test sull'URL della Web App

@@ -39,12 +39,22 @@ function onOpen() {
 }
 
 /**
- * Gestione richieste GET (Health check / Ping / Scaricamento Catalogo / Scaricamento Prelievi)
+ * Gestione richieste GET (Health check / Ping / Scaricamento Catalogo / Scaricamento Prelievi / Visualizzazione Web Scheda)
  */
 function doGet(e) {
   try {
-    const action = (e && e.parameter && e.parameter.action) ? e.parameter.action : "ping";
+    const schedaId = (e && e.parameter && (e.parameter.scheda || e.parameter.id)) 
+      ? (e.parameter.scheda || e.parameter.id).toString().trim() 
+      : null;
+    const action = (e && e.parameter && e.parameter.action) 
+      ? e.parameter.action 
+      : (schedaId ? "view_scheda" : "ping");
     const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    // Visualizzazione Web Scheda Prelievo (accessibile da qualsiasi browser senza app)
+    if (action === "view_scheda" || (schedaId && action === "view")) {
+      return renderSchedaHtml(ss, schedaId);
+    }
 
     if (action === "ping") {
       return jsonResponse({
@@ -227,6 +237,259 @@ function doGet(e) {
   } catch (err) {
     return jsonResponse({ status: "error", message: err.toString() }, 500);
   }
+}
+
+/**
+ * Esegue il rendering HTML di una Scheda Prelievo per la consultazione Web da smartphone/desktop senza app
+ */
+function renderSchedaHtml(ss, schedaId) {
+  const sheetP = ss.getSheetByName(SHEET_PRELIEVI);
+  const sheetD = ss.getSheetByName(SHEET_DETTAGLI);
+  const sheetC = ss.getSheetByName(SHEET_CATALOGO);
+
+  const catalogoMap = {};
+  if (sheetC) {
+    const dataC = sheetC.getDataRange().getValues();
+    for (let i = 1; i < dataC.length; i++) {
+      const rowC = dataC[i];
+      if (rowC[0]) {
+        catalogoMap[rowC[0].toString().trim()] = {
+          categoria: (rowC[1] || "").toString().trim(),
+          nome: (rowC[2] || "").toString().trim()
+        };
+      }
+    }
+  }
+
+  let prelievo = null;
+  if (sheetP) {
+    const dataP = sheetP.getDataRange().getValues();
+    if (dataP.length > 1) {
+      const headerP = dataP[0].map(function(h) { return h.toString().toLowerCase().trim(); });
+      const colId = findColIndex(headerP, ["id", "id_prelievo", "id prelievo"], -1);
+      const colData = findColIndex(headerP, ["data", "data prelievo", "data di prelievo"], -1);
+      const colLuogo = findColIndex(headerP, ["luogo", "luogo / grotta", "luogo/grotta"], -1);
+      const colResp = findColIndex(headerP, ["responsabile"], -1);
+      const colStato = findColIndex(headerP, ["stato"], -1);
+      const colRiconsegna = findColIndex(headerP, ["data di riconsegna", "data riconsegna", "data rientro", "data_rientro", "riconsegna"], -1);
+      const colOperatore = findColIndex(headerP, ["operatore", "operatore rientro", "operatore_rientro"], -1);
+      const colParere = findColIndex(headerP, ["parere", "note / parere", "note/parere", "note"], -1);
+
+      for (let i = 1; i < dataP.length; i++) {
+        const row = dataP[i];
+        const rowId = (colId >= 0 && row[colId]) ? row[colId].toString().trim() : "";
+        if (rowId === schedaId) {
+          prelievo = {
+            id: rowId,
+            dataPrelievo: (colData >= 0 && row[colData]) ? row[colData].toString().trim() : "",
+            luogoGrotta: (colLuogo >= 0 && row[colLuogo]) ? row[colLuogo].toString().trim() : "Non specificato",
+            responsabile: (colResp >= 0 && row[colResp]) ? row[colResp].toString().trim() : "Non specificato",
+            stato: (colStato >= 0 && row[colStato]) ? row[colStato].toString().trim() : "In attesa materiale",
+            dataRiconsegna: (colRiconsegna >= 0 && row[colRiconsegna]) ? row[colRiconsegna].toString().trim() : "",
+            operatore: (colOperatore >= 0 && row[colOperatore]) ? row[colOperatore].toString().trim() : "",
+            note: (colParere >= 0 && row[colParere]) ? row[colParere].toString().trim() : ""
+          };
+          break;
+        }
+      }
+    }
+  }
+
+  if (!prelievo) {
+    const notFoundHtml = '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+      '<meta name="viewport" content="width=device-width, initial-scale=1">' +
+      '<title>Scheda non trovata - Speleo Club Roma</title>' +
+      '<style>' +
+      'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #faf8f5; color: #2c3e50; margin: 0; padding: 20px; text-align: center; }' +
+      '.card { background: white; border-radius: 16px; padding: 36px 20px; max-width: 480px; margin: 40px auto; box-shadow: 0 4px 20px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; }' +
+      '.icon { font-size: 54px; margin-bottom: 16px; }' +
+      'h2 { margin: 0 0 10px 0; color: #1e293b; font-size: 20px; }' +
+      'p { color: #64748b; font-size: 14px; line-height: 1.6; }' +
+      'code { background: #f1f5f9; padding: 3px 6px; border-radius: 6px; font-size: 12px; }' +
+      '</style></head><body>' +
+      '<div class="card">' +
+      '<div class="icon">🔍</div>' +
+      '<h2>Scheda Prelievo non trovata</h2>' +
+      '<p>La scheda richiesta (<code>' + escapeHtml(schedaId || "") + '</code>) non è ancora presente sul foglio Google Sheets del magazzino.<br><br>Se è stata appena compilata sullo smartphone, assicurati che il magazziniere abbia completato la <strong>sincronizzazione</strong>.</p>' +
+      '</div></body></html>';
+    return HtmlService.createHtmlOutput(notFoundHtml).setTitle("Scheda non trovata").addMetaTag("viewport", "width=device-width, initial-scale=1");
+  }
+
+  const dettagli = [];
+  if (sheetD) {
+    const dataD = sheetD.getDataRange().getValues();
+    if (dataD.length > 1) {
+      const headerD = dataD[0].map(function(h) { return h.toString().toLowerCase().trim(); });
+      const colPId = findColIndex(headerD, ["prelievo_id", "id prelievo", "id_prelievo", "prelievo id"], -1);
+      const colMId = findColIndex(headerD, ["materiale_id", "id materiale", "id_materiale", "materiale id", "id_attrezzatura"], -1);
+      const colQta = findColIndex(headerD, ["quantita_prelevata", "quantita", "quantità", "qta prelevata", "qta"], -1);
+      const colSpunta = findColIndex(headerD, ["spunta_rientro", "spunta rientro", "rientrato", "rientro", "spunta"], -1);
+      const colQtaTornata = findColIndex(headerD, ["qta_tornata", "qta tornata", "quantita tornata", "quantita_tornata", "restituiti"], -1);
+      const colNoteD = findColIndex(headerD, ["note_rientro", "note rientro", "note"], -1);
+
+      for (let i = 1; i < dataD.length; i++) {
+        const row = dataD[i];
+        const rPrelievoId = (colPId >= 0 && row[colPId]) ? row[colPId].toString().trim() : "";
+        if (rPrelievoId === schedaId) {
+          const matId = (colMId >= 0 && row[colMId]) ? row[colMId].toString().trim() : "";
+          const cat = catalogoMap[matId] ? catalogoMap[matId].categoria : "";
+          const nome = catalogoMap[matId] ? catalogoMap[matId].nome : matId;
+          const qta = (colQta >= 0 && row[colQta] !== "") ? parseInt(row[colQta], 10) : 1;
+          const spuntaRaw = (colSpunta >= 0 && row[colSpunta]) ? row[colSpunta].toString().trim().toUpperCase() : "";
+          const isSpunta = (spuntaRaw === "SI" || spuntaRaw === "1" || spuntaRaw === "TRUE");
+          const qtaTornata = (colQtaTornata >= 0 && row[colQtaTornata] !== "") ? parseInt(row[colQtaTornata], 10) : null;
+          const noteD = (colNoteD >= 0 && row[colNoteD]) ? row[colNoteD].toString().trim() : "";
+
+          const isMetri = (matId.toLowerCase() === "c_001" || matId.toLowerCase() === "r_003" || (cat.toLowerCase() === "corde" && !nome.toLowerCase().includes("cordin") && !nome.toLowerCase().includes("sacch") && !nome.toLowerCase().includes("guain")));
+          const unita = isMetri ? "m" : "pz";
+
+          dettagli.push({
+            matId: matId,
+            categoria: cat || "Varie",
+            nome: nome,
+            qta: isNaN(qta) ? 1 : qta,
+            unita: unita,
+            isMetri: isMetri,
+            isSpunta: isSpunta,
+            qtaTornata: isNaN(qtaTornata) ? null : qtaTornata,
+            note: noteD
+          });
+        }
+      }
+    }
+  }
+
+  const html = buildSchedaHtmlOutput(prelievo, dettagli);
+  return HtmlService.createHtmlOutput(html)
+    .setTitle("Scheda: " + prelievo.luogoGrotta + " - Speleo Club Roma")
+    .addMetaTag("viewport", "width=device-width, initial-scale=1");
+}
+
+function buildSchedaHtmlOutput(prelievo, dettagli) {
+  let totPezzi = 0;
+  let totMetri = 0;
+  let totMatasse = 0;
+
+  for (let i = 0; i < dettagli.length; i++) {
+    const d = dettagli[i];
+    if (d.isMetri) {
+      totMetri += d.qta;
+      totMatasse += 1;
+      totPezzi += 1;
+    } else {
+      totPezzi += d.qta;
+    }
+  }
+
+  let statoClass = "stato-attesa";
+  let statoLabel = prelievo.stato;
+  const sLower = prelievo.stato.toLowerCase();
+  if (sLower.includes("rientrato")) {
+    statoClass = "stato-rientrato";
+  } else if (sLower.includes("mancante")) {
+    statoClass = "stato-mancante";
+  } else if (sLower.includes("annullat")) {
+    statoClass = "stato-annullato";
+  }
+
+  let righeHtml = "";
+  if (dettagli.length === 0) {
+    righeHtml = '<tr><td colspan="5" style="text-align:center; padding: 24px; color: #94a3b8;">Nessun materiale specificato in questa scheda.</td></tr>';
+  } else {
+    for (let i = 0; i < dettagli.length; i++) {
+      const d = dettagli[i];
+      const rientratoBadge = d.isSpunta
+        ? '<span class="badge-ok">✓ Rientrato' + (d.qtaTornata !== null ? ' (' + d.qtaTornata + ' ' + d.unita + ')' : '') + '</span>'
+        : '<span class="badge-attesa">In uscita</span>';
+      
+      righeHtml += '<tr>' +
+        '<td class="td-cat">' + escapeHtml(d.categoria) + '</td>' +
+        '<td class="td-nome"><strong>' + escapeHtml(d.nome) + '</strong>' + (d.note ? '<div class="item-note">Nota: ' + escapeHtml(d.note) + '</div>' : '') + '</td>' +
+        '<td class="td-qta ' + (d.isMetri ? 'qta-metri' : '') + '">' + d.qta + ' ' + d.unita + '</td>' +
+        '<td class="td-rientro">' + rientratoBadge + '</td>' +
+        '</tr>';
+    }
+  }
+
+  return '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1">' +
+    '<title>' + escapeHtml(prelievo.luogoGrotta) + ' - Speleo Club Roma</title>' +
+    '<style>' +
+    '* { box-sizing: border-box; }' +
+    'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #f8fafc; color: #1e293b; margin: 0; padding: 16px; font-size: 14px; line-height: 1.5; }' +
+    '.container { max-width: 680px; margin: 0 auto; background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; overflow: hidden; }' +
+    '.header { background: #0f172a; color: white; padding: 20px; display: flex; align-items: center; justify-content: space-between; }' +
+    '.brand { display: flex; align-items: center; gap: 12px; }' +
+    '.brand-title { font-size: 16px; font-weight: 700; letter-spacing: 0.5px; }' +
+    '.brand-sub { font-size: 11px; color: #94a3b8; }' +
+    '.btn-print { background: #334155; color: white; border: none; border-radius: 8px; padding: 8px 12px; font-size: 12px; font-weight: 600; cursor: pointer; }' +
+    '.card-body { padding: 20px; }' +
+    '.title-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; gap: 12px; }' +
+    '.grotta-name { font-size: 22px; font-weight: 800; color: #0f172a; margin: 0; line-height: 1.2; }' +
+    '.badge-stato { display: inline-block; padding: 6px 12px; border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap; text-transform: uppercase; letter-spacing: 0.5px; }' +
+    '.stato-attesa { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }' +
+    '.stato-rientrato { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }' +
+    '.stato-mancante { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }' +
+    '.stato-annullato { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }' +
+    '.meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #f8fafc; border-radius: 12px; padding: 14px; margin-bottom: 20px; border: 1px solid #f1f5f9; }' +
+    '.meta-label { font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; margin-bottom: 2px; }' +
+    '.meta-value { font-size: 14px; font-weight: 600; color: #1e293b; }' +
+    '.note-box { background: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px; padding: 10px 14px; margin-bottom: 20px; font-size: 13px; color: #78350f; }' +
+    '.section-title { font-size: 14px; font-weight: 700; color: #334155; margin: 24px 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px; display: flex; justify-content: space-between; align-items: center; }' +
+    'table { width: 100%; border-collapse: collapse; font-size: 13px; }' +
+    'th { background: #f1f5f9; text-align: left; padding: 10px 8px; font-weight: 700; color: #475569; font-size: 11px; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }' +
+    'td { padding: 10px 8px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }' +
+    '.td-cat { color: #64748b; font-size: 11px; width: 22%; }' +
+    '.td-nome { color: #0f172a; width: 40%; }' +
+    '.td-qta { font-weight: 700; text-align: right; width: 18%; }' +
+    '.qta-metri { color: #c2410c; }' +
+    '.td-rientro { text-align: right; width: 20%; }' +
+    '.badge-ok { background: #dcfce7; color: #166534; font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 4px; }' +
+    '.badge-attesa { background: #fef3c7; color: #92400e; font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 4px; }' +
+    '.item-note { font-size: 11px; color: #b45309; font-style: italic; margin-top: 3px; }' +
+    '.summary-box { display: flex; justify-content: space-around; background: #0f172a; color: white; padding: 14px; border-radius: 12px; margin-top: 20px; font-weight: 700; font-size: 13px; }' +
+    '.summary-metri { color: #fdba74; }' +
+    '.footer { text-align: center; color: #94a3b8; font-size: 11px; margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; }' +
+    '@media print { body { background: white; padding: 0; } .container { box-shadow: none; border: none; max-width: 100%; } .btn-print { display: none; } }' +
+    '</style></head><body>' +
+    '<div class="container">' +
+    '<div class="header">' +
+    '<div class="brand">' +
+    '<div><div class="brand-title">🦇 SPELEO CLUB ROMA 1959</div><div class="brand-sub">Scheda Prelievo Attrezzature & Materiali</div></div>' +
+    '</div>' +
+    '<button class="btn-print" onclick="window.print()">🖨️ Stampa / PDF</button>' +
+    '</div>' +
+    '<div class="card-body">' +
+    '<div class="title-row">' +
+    '<h1 class="grotta-name">' + escapeHtml(prelievo.luogoGrotta) + '</h1>' +
+    '<span class="badge-stato ' + statoClass + '">' + escapeHtml(statoLabel) + '</span>' +
+    '</div>' +
+    '<div class="meta-grid">' +
+    '<div><div class="meta-label">Responsabile Prelievo</div><div class="meta-value">👤 ' + escapeHtml(prelievo.responsabile) + '</div></div>' +
+    '<div><div class="meta-label">Data Prelievo</div><div class="meta-value">📅 ' + escapeHtml(prelievo.dataPrelievo) + '</div></div>' +
+    (prelievo.dataRiconsegna ? '<div><div class="meta-label">Data Riconsegna</div><div class="meta-value">🏁 ' + escapeHtml(prelievo.dataRiconsegna) + '</div></div>' : '') +
+    (prelievo.operatore ? '<div><div class="meta-label">Operatore Magazzino</div><div class="meta-value">🏷️ ' + escapeHtml(prelievo.operatore) + '</div></div>' : '') +
+    '</div>' +
+    (prelievo.note ? '<div class="note-box"><strong>Note scheda:</strong> ' + escapeHtml(prelievo.note) + '</div>' : '') +
+    '<div class="section-title"><span>Materiali Prelevati (' + dettagli.length + ' voci)</span></div>' +
+    '<table><thead><tr><th>Categoria</th><th>Descrizione</th><th style="text-align:right;">Quantità</th><th style="text-align:right;">Rientro</th></tr></thead>' +
+    '<tbody>' + righeHtml + '</tbody></table>' +
+    '<div class="summary-box">' +
+    '<div>Totale Pezzi Fisici: ' + totPezzi + ' pz</div>' +
+    (totMetri > 0 ? '<div class="summary-metri">Corde: ' + totMetri + ' m (' + totMatasse + ' ' + (totMatasse === 1 ? 'matassa' : 'matasse') + ')</div>' : '') +
+    '</div>' +
+    '<div class="footer">ID Scheda: ' + escapeHtml(prelievo.id) + '<br>Speleo Club Roma • Gestione Magazzino Offline-First</div>' +
+    '</div></div></body></html>';
+}
+
+function escapeHtml(str) {
+  if (!str) return "";
+  return str.toString()
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 /**
