@@ -27,6 +27,7 @@
 const SHEET_PRELIEVI = "Prelievi";
 const SHEET_DETTAGLI = "Dettagli";
 const SHEET_CATALOGO = "Catalogo";
+const SHEET_ARCHIVIO_ANNULLATI = "Archivio_Annullati";
 
 /**
  * Crea il menu rapido in Google Sheets ogni volta che il documento viene aperto
@@ -39,6 +40,8 @@ function onOpen() {
       .addSeparator()
       .addItem("💾 Esegui Backup Adesso (1-Click)", "menuEseguiBackupManuale")
       .addItem("⏰ Attiva/Verifica Backup Notturno Automatico", "menuConfiguraBackupNotturno")
+      .addSeparator()
+      .addItem("🗑️ Purge Schede Annullate (Cancellazione definitiva)", "menuPurgeSchedeAnnullate")
       .addToUi();
   } catch (e) {
     // Non disponibile in contesti trigger headless
@@ -580,6 +583,18 @@ function doPost(e) {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     
     setupSheetsIfNeeded(ss);
+
+    // Gestione richiesta eliminazione definitiva (Purge) schede annullate
+    if (payload.action === "purge_annullati") {
+      const purgeResult = eseguiPurgeSchedeAnnullate(ss, payload.ids);
+      return jsonResponse({
+        status: "success",
+        message: "Purge schede annullate completato con successo!",
+        prelievi_eliminati: purgeResult.prelieviEliminati,
+        dettagli_eliminati: purgeResult.dettagliEliminati,
+        timestamp: new Date().toISOString()
+      });
+    }
 
     let prelieviAggiornati = 0;
     let dettagliAggiornati = 0;
@@ -1525,4 +1540,191 @@ function triggerBackupNotturno() {
       console.error("Invio email di avviso fallito: " + mailErr);
     }
   }
+}
+
+/**
+ * Menu rapido per l'eliminazione definitiva (purge) delle schede annullate
+ */
+function menuPurgeSchedeAnnullate() {
+  const ui = SpreadsheetApp.getUi();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetP = ss.getSheetByName(SHEET_PRELIEVI);
+  if (!sheetP) {
+    ui.alert("Foglio Prelievi non trovato.");
+    return;
+  }
+
+  const dataP = sheetP.getDataRange().getValues();
+  if (dataP.length <= 1) {
+    ui.alert("Nessun dato presente nel foglio Prelievi.");
+    return;
+  }
+
+  const headerP = dataP[0].map(function(h) { return h.toString().toLowerCase().trim(); });
+  const colStatoP = findColIndex(headerP, ["stato"], -1);
+  if (colStatoP === -1) {
+    ui.alert("Colonna 'Stato' non trovata nel foglio Prelievi.");
+    return;
+  }
+
+  let countAnnullati = 0;
+  for (let r = 1; r < dataP.length; r++) {
+    const stato = dataP[r][colStatoP] ? dataP[r][colStatoP].toString().trim() : "";
+    if (stato.toLowerCase() === "annullato") {
+      countAnnullati++;
+    }
+  }
+
+  if (countAnnullati === 0) {
+    ui.alert("Nessuna scheda annullata trovata da eliminare.");
+    return;
+  }
+
+  const response = ui.alert(
+    "🗑️ Conferma Purge Schede Annullate",
+    "Trovate " + countAnnullati + " schede con stato 'Annullato'.\n\n" +
+    "Vuoi eliminarle definitivamente dai fogli Prelievi e Dettagli?\n" +
+    "(Verrà creato prima un backup di sicurezza automatico e le righe eliminate verranno archiviate nel foglio '" + SHEET_ARCHIVIO_ANNULLATI + "').",
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response !== ui.Button.YES) {
+    return;
+  }
+
+  try {
+    // 1. Backup di sicurezza preventivo
+    eseguiBackupCompleto(ss, "PRE_PURGE");
+
+    // 2. Esecuzione Purge
+    const res = eseguiPurgeSchedeAnnullate(ss);
+    ui.alert(
+      "✅ Purge Completato con Successo!",
+      "Eliminate definitivamente " + res.prelieviEliminati + " schede e " + res.dettagliEliminati + " righe di dettaglio.\n" +
+      "I dati sono stati archiviati nel foglio '" + SHEET_ARCHIVIO_ANNULLATI + "'.",
+      ui.ButtonSet.OK
+    );
+  } catch (err) {
+    ui.alert("Errore durante il purge: " + err.toString());
+  }
+}
+
+/**
+ * Esegue il purge (eliminazione definitiva dai fogli attivi) delle schede annullate.
+ * Per sicurezza e tracciabilità, le righe eliminate vengono salvate nel foglio 'Archivio_Annullati'.
+ */
+function eseguiPurgeSchedeAnnullate(ss, targetIds) {
+  const sheetP = ss.getSheetByName(SHEET_PRELIEVI);
+  const sheetD = ss.getSheetByName(SHEET_DETTAGLI);
+  if (!sheetP) return { prelieviEliminati: 0, dettagliEliminati: 0 };
+
+  const dataP = sheetP.getDataRange().getValues();
+  if (dataP.length <= 1) return { prelieviEliminati: 0, dettagliEliminati: 0 };
+
+  const headerP = dataP[0].map(function(h) { return h.toString().toLowerCase().trim(); });
+  const colIdP = findColIndex(headerP, ["id", "id_prelievo", "id prelievo"], -1);
+  const colStatoP = findColIndex(headerP, ["stato"], -1);
+
+  if (colIdP === -1 || colStatoP === -1) return { prelieviEliminati: 0, dettagliEliminati: 0 };
+
+  const targetIdSet = {};
+  if (targetIds && Array.isArray(targetIds) && targetIds.length > 0) {
+    for (let i = 0; i < targetIds.length; i++) {
+      targetIdSet[targetIds[i].toString().trim()] = true;
+    }
+  }
+
+  // 1. Identifica le righe di Prelievi da eliminare (dal basso verso l'alto per evitare sfasamento indici)
+  const righePrelieviDaEliminare = [];
+  const idsPrelieviDaEliminare = {};
+  const rowsToArchiveP = [];
+
+  for (let r = dataP.length - 1; r >= 1; r--) {
+    const row = dataP[r];
+    const id = row[colIdP] ? row[colIdP].toString().trim() : "";
+    const stato = row[colStatoP] ? row[colStatoP].toString().trim() : "";
+
+    const isMatch = (targetIds && targetIds.length > 0)
+      ? (targetIdSet[id] === true)
+      : (stato.toLowerCase() === "annullato");
+
+    if (isMatch && id) {
+      righePrelieviDaEliminare.push(r + 1); // 1-based index
+      idsPrelieviDaEliminare[id] = true;
+      rowsToArchiveP.push(row);
+    }
+  }
+
+  // 2. Identifica e archivia le righe di Dettagli associate
+  const righeDettagliDaEliminare = [];
+  const rowsToArchiveD = [];
+  if (sheetD) {
+    const dataD = sheetD.getDataRange().getValues();
+    if (dataD.length > 1) {
+      const headerD = dataD[0].map(function(h) { return h.toString().toLowerCase().trim(); });
+      const colPrelievoIdD = findColIndex(headerD, ["prelievo_id", "id_prelievo", "id prelievo"], -1);
+      if (colPrelievoIdD !== -1) {
+        for (let r = dataD.length - 1; r >= 1; r--) {
+          const row = dataD[r];
+          const pId = row[colPrelievoIdD] ? row[colPrelievoIdD].toString().trim() : "";
+          if (idsPrelieviDaEliminare[pId] === true) {
+            righeDettagliDaEliminare.push(r + 1);
+            rowsToArchiveD.push(row);
+          }
+        }
+      }
+    }
+  }
+
+  // 3. Salva nell'Archivio_Annullati per audit trail
+  if (rowsToArchiveP.length > 0) {
+    salvaInArchivioAnnullati(ss, rowsToArchiveP, dataP[0]);
+  }
+
+  // 4. Elimina righe da Prelievi (già ordinate decrescenti)
+  for (let i = 0; i < righePrelieviDaEliminare.length; i++) {
+    sheetP.deleteRow(righePrelieviDaEliminare[i]);
+  }
+
+  // 5. Elimina righe da Dettagli (già ordinate decrescenti)
+  if (sheetD) {
+    for (let i = 0; i < righeDettagliDaEliminare.length; i++) {
+      sheetD.deleteRow(righeDettagliDaEliminare[i]);
+    }
+  }
+
+  return {
+    prelieviEliminati: righePrelieviDaEliminare.length,
+    dettagliEliminati: righeDettagliDaEliminare.length
+  };
+}
+
+/**
+ * Salva le righe eliminate nel foglio Archivio_Annullati per garantire tracciabilità e sicurezza.
+ */
+function salvaInArchivioAnnullati(ss, rows, headerOriginale) {
+  let sheetArchivio = ss.getSheetByName(SHEET_ARCHIVIO_ANNULLATI);
+  if (!sheetArchivio) {
+    sheetArchivio = ss.insertSheet(SHEET_ARCHIVIO_ANNULLATI);
+    const newHeader = headerOriginale.slice();
+    newHeader.push("data_purge");
+    sheetArchivio.appendRow(newHeader);
+    sheetArchivio.getRange(1, 1, 1, newHeader.length)
+      .setBackground("#374151")
+      .setFontColor("#FFFFFF")
+      .setFontWeight("bold");
+    sheetArchivio.setFrozenRows(1);
+  }
+
+  const nowStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss");
+  const rowsToAppend = rows.map(function(r) {
+    const rowCopy = r.slice();
+    rowCopy.push(nowStr);
+    return rowCopy;
+  });
+
+  const startRow = sheetArchivio.getLastRow() + 1;
+  const numRows = rowsToAppend.length;
+  const numCols = rowsToAppend[0].length;
+  sheetArchivio.getRange(startRow, 1, numRows, numCols).setValues(rowsToAppend);
 }

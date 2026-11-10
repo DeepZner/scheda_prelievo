@@ -53,4 +53,6 @@ abstract class IPrelievoRepository {
   Future<List<Prelievo>> getPrelieviDaSincronizzare();
   Future<void> markPrelievoAsSynced(String prelievoId);
   Future<void> markDettaglioAsSynced(String idDettaglio);
+  Future<List<Prelievo>> getSchedeAnnullate();
+  Future<int> purgeSchedeAnnullate({List<String>? prelievoIds});
 }

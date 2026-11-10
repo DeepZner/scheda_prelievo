@@ -4,6 +4,7 @@ import '../../domain/models/prelievo.dart';
 import '../../domain/models/stato_prelievo.dart';
 import '../../domain/repositories/i_prelievo_repository.dart';
 import '../database/database_helper.dart';
+import '../services/allegati_service.dart';
 
 class SqlitePrelievoRepository implements IPrelievoRepository {
   final DatabaseHelper _dbHelper;
@@ -415,5 +416,51 @@ class SqlitePrelievoRepository implements IPrelievoRepository {
       where: 'id_dettaglio = ?',
       whereArgs: [idDettaglio],
     );
+  }
+
+  @override
+  Future<List<Prelievo>> getSchedeAnnullate() async {
+    return getPrelieviByStato(StatoPrelievo.annullato);
+  }
+
+  @override
+  Future<int> purgeSchedeAnnullate({List<String>? prelievoIds}) async {
+    final db = await _dbHelper.database;
+    final List<String> targetIds = [];
+
+    if (prelievoIds != null && prelievoIds.isNotEmpty) {
+      targetIds.addAll(prelievoIds);
+    } else {
+      final rows = await db.query(
+        DatabaseHelper.tablePrelievi,
+        columns: ['id'],
+        where: 'stato = ?',
+        whereArgs: [StatoPrelievo.annullato.label],
+      );
+      targetIds.addAll(rows.map((r) => r['id'] as String));
+    }
+
+    if (targetIds.isEmpty) return 0;
+
+    await db.transaction((txn) async {
+      for (final id in targetIds) {
+        await txn.delete(
+          DatabaseHelper.tableDettagliPrelievo,
+          where: 'prelievo_id = ?',
+          whereArgs: [id],
+        );
+        await txn.delete(
+          DatabaseHelper.tablePrelievi,
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+      }
+    });
+
+    for (final id in targetIds) {
+      await AllegatiService.eliminaCartellaPrelievo(id);
+    }
+
+    return targetIds.length;
   }
 }

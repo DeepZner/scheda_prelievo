@@ -200,6 +200,47 @@ class GoogleSheetsClient {
     }
   }
 
+  /// Invia la richiesta di eliminazione definitiva (purge) delle schede annullate a Google Sheets
+  Future<bool> purgeSchedeAnnullate(String webAppUrl, {List<String>? prelievoIds}) async {
+    try {
+      final cleanUrl = sanitizeUrl(webAppUrl);
+      if (cleanUrl.isEmpty) return false;
+
+      final body = jsonEncode({
+        'action': 'purge_annullati',
+        'ids': prelievoIds,
+        'timestamp': DateTime.now().toIso8601String(),
+      });
+
+      final request = http.Request('POST', Uri.parse(cleanUrl))
+        ..headers.addAll({
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        })
+        ..body = body
+        ..followRedirects = false;
+
+      final streamedResponse = await _client.send(request);
+      final response = await http.Response.fromStream(streamedResponse);
+      http.Response finalResponse = response;
+
+      if (response.statusCode == 302 || response.statusCode == 301) {
+        final redirectUrl = response.headers['location'];
+        if (redirectUrl != null && redirectUrl.isNotEmpty) {
+          finalResponse = await _client.get(Uri.parse(redirectUrl));
+        }
+      }
+
+      if (finalResponse.statusCode >= 200 && finalResponse.statusCode < 300) {
+        final dynamic data = jsonDecode(finalResponse.body);
+        return data is Map && data['status'] == 'success';
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Scarica tutti i prelievi e i dettagli salvati nel foglio Google
   Future<GoogleSheetsDownloadResult> fetchPrelieviEDettagli(String webAppUrl) async {
     try {

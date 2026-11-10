@@ -372,4 +372,11 @@ class SyncService {
       );
     }
   }
+
+  /// Invia il comando di eliminazione definitiva (purge) delle schede annullate al server Google Apps Script
+  Future<bool> purgeSchedeAnnullateRemote({List<String>? prelievoIds}) async {
+    final url = await getGoogleSheetsUrl();
+    if (url == null || url.trim().isEmpty) return false;
+    return _sheetsClient.purgeSchedeAnnullate(url, prelievoIds: prelievoIds);
+  }
 }

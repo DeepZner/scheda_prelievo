@@ -20,6 +20,9 @@ class DatabaseHelper {
   DatabaseHelper._internal();
   static final DatabaseHelper instance = DatabaseHelper._internal();
 
+  @visibleForTesting
+  DatabaseHelper.withDatabase(Database db) : _database = db;
+
   Database? _database;
   Future<Database>? _initFuture;
 

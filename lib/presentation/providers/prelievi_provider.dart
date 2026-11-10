@@ -3,6 +3,7 @@ import '../../domain/models/dettaglio_prelievo.dart';
 import '../../domain/models/prelievo.dart';
 import '../../domain/models/stato_prelievo.dart';
 import 'database_providers.dart';
+import 'sync_provider.dart';
 
 final prelieviListProvider = FutureProvider<List<Prelievo>>((ref) async {
   final repository = ref.watch(prelievoRepositoryProvider);
@@ -50,6 +51,11 @@ final prelievoDetailProvider =
     FutureProvider.family<Prelievo?, String>((ref, id) async {
   final repository = ref.watch(prelievoRepositoryProvider);
   return repository.getPrelievoById(id);
+});
+
+final schedeAnnullateProvider = FutureProvider<List<Prelievo>>((ref) async {
+  final repository = ref.watch(prelievoRepositoryProvider);
+  return repository.getSchedeAnnullate();
 });
 
 class PrelieviController extends StateNotifier<AsyncValue<void>> {
@@ -197,10 +203,37 @@ class PrelieviController extends StateNotifier<AsyncValue<void>> {
     });
   }
 
+  /// Elimina definitivamente (purge) le schede annullate dal DB locale SQLite e facoltativamente da Google Sheets
+  Future<int> purgeSchedeAnnullate({
+    List<String>? prelievoIds,
+    bool purgeRemote = true,
+  }) async {
+    state = const AsyncValue.loading();
+    try {
+      final repository = _ref.read(prelievoRepositoryProvider);
+      final count = await repository.purgeSchedeAnnullate(prelievoIds: prelievoIds);
+
+      if (purgeRemote) {
+        try {
+          final syncService = _ref.read(syncServiceProvider);
+          await syncService.purgeSchedeAnnullateRemote(prelievoIds: prelievoIds);
+        } catch (_) {}
+      }
+
+      _invalidateLists();
+      state = const AsyncValue.data(null);
+      return count;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
+
   void _invalidateLists() {
     _ref.invalidate(prelieviListProvider);
     _ref.invalidate(prelieviInAttesaProvider);
     _ref.invalidate(storicoRaggruppatoProvider);
+    _ref.invalidate(schedeAnnullateProvider);
     _ref.invalidate(prelievoDetailProvider);
   }
 }

@@ -9,6 +9,7 @@ import '../../data/services/allegati_service.dart';
 import '../../data/services/pdf_service.dart';
 import '../providers/prelievi_provider.dart';
 import '../providers/sync_provider.dart';
+import '../widgets/purge_schede_annullate_sheet.dart';
 import '../widgets/stato_badge.dart';
 import '../widgets/sync_status_button.dart';
 
@@ -637,14 +638,34 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
             orElse: () => const SizedBox.shrink(),
           ),
           prelievoAsync.maybeWhen(
-            data: (p) => p != null && p.stato != StatoPrelievo.annullato
-                ? IconButton(
-                    visualDensity: VisualDensity.compact,
-                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                    tooltip: 'Annulla scheda prelievo (cancellazione logica)',
-                    onPressed: () => _confermaEliminazione(context, ref),
-                  )
-                : const SizedBox.shrink(),
+            data: (p) {
+              if (p == null) return const SizedBox.shrink();
+              if (p.stato != StatoPrelievo.annullato) {
+                return IconButton(
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                  tooltip: 'Annulla scheda prelievo (cancellazione logica)',
+                  onPressed: () => _confermaEliminazione(context, ref),
+                );
+              } else {
+                return IconButton(
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.delete_forever_rounded, color: Colors.red),
+                  tooltip: 'Elimina definitivamente dal dispositivo (Purge)',
+                  onPressed: () {
+                    PurgeSchedeAnnullateSheet.mostra(
+                      context,
+                      prelievi: [p],
+                      onPurgeCompletato: () {
+                        if (context.mounted) {
+                          context.pop();
+                        }
+                      },
+                    );
+                  },
+                );
+              }
+            },
             orElse: () => const SizedBox.shrink(),
           ),
         ],
@@ -835,7 +856,7 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
                       const SizedBox(width: 12),
                       const Expanded(
                         child: Text(
-                          'Questa scheda di prelievo è stata annullata. Rimane archiviata nello storico e sul foglio Google Sheets.',
+                          'Questa scheda di prelievo è stata annullata (cancellazione logica).',
                           style: TextStyle(
                             color: Colors.black87,
                             fontWeight: FontWeight.bold,
@@ -844,6 +865,35 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
                         ),
                       ),
                     ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.red.shade700,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    icon: const Icon(Icons.delete_forever_rounded),
+                    label: const Text(
+                      'ELIMINA DEFINITIVAMENTE (PURGE)',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    onPressed: () {
+                      PurgeSchedeAnnullateSheet.mostra(
+                        context,
+                        prelievi: [prelievo],
+                        onPurgeCompletato: () {
+                          if (context.mounted) {
+                            context.pop();
+                          }
+                        },
+                      );
+                    },
                   ),
                 ),
                 const SizedBox(height: 16),

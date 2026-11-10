@@ -5,6 +5,7 @@ import '../../domain/models/prelievo.dart';
 import '../../domain/models/stato_prelievo.dart';
 import '../providers/prelievi_provider.dart';
 import 'prelievo_card.dart';
+import 'purge_schede_annullate_sheet.dart';
 
 /// Vista Storico con ordinamento ascendente (dal più vecchio al più recente)
 /// e raggruppamento visuale per stato del prelievo.
@@ -195,6 +196,49 @@ class _StoricoRaggruppatoViewState
                             ),
                           ),
                         ),
+                        if (stato == StatoPrelievo.annullato &&
+                            prelieviDelGruppo.isNotEmpty) ...[
+                          InkWell(
+                            borderRadius: BorderRadius.circular(8),
+                            onTap: () {
+                              PurgeSchedeAnnullateSheet.mostra(
+                                context,
+                                prelievi: prelieviDelGruppo,
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.red.shade100,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.red.shade300),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.delete_forever_rounded,
+                                    size: 16,
+                                    color: Colors.red.shade800,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Svuota (${prelieviDelGruppo.length})',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.red.shade900,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 8,

@@ -116,4 +116,15 @@ class AllegatiService {
       }
     } catch (_) {}
   }
+
+  /// Elimina l'intera cartella degli allegati associata al prelievo
+  static Future<void> eliminaCartellaPrelievo(String prelievoId) async {
+    try {
+      final appDir = await getApplicationDocumentsDirectory();
+      final dir = Directory(p.join(appDir.path, 'relazioni', prelievoId));
+      if (await dir.exists()) {
+        await dir.delete(recursive: true);
+      }
+    } catch (_) {}
+  }
 }
