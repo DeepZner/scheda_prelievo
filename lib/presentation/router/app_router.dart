@@ -1,4 +1,5 @@
 import 'package:go_router/go_router.dart';
+import '../screens/credits_screen.dart';
 import '../screens/dettaglio_prelievo_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/nuovo_prelievo_screen.dart';
@@ -55,6 +56,10 @@ final appRouter = GoRouter(
         GoRoute(
           path: 'storico',
           builder: (context, state) => const StoricoPrelieviScreen(),
+        ),
+        GoRoute(
+          path: 'credits',
+          builder: (context, state) => const CreditsScreen(),
         ),
       ],
     ),

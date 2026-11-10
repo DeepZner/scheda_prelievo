@@ -20,28 +20,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.asset(
-              'assets/images/app_logo.png',
-              height: 28,
-              width: 28,
+        title: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => context.go('/credits'),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Image.asset(
+                  'assets/images/app_logo.png',
+                  height: 28,
+                  width: 28,
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    _currentIndex == 0 ? 'Storico Prelievi' : 'Spunta Rientro',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                _currentIndex == 0 ? 'Storico Prelievi' : 'Spunta Rientro',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
+          ),
         ),
         centerTitle: false,
-        actions: const [
-          SyncStatusButton(),
-          SizedBox(width: 8),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.info_outline_rounded),
+            tooltip: 'Info & Credits',
+            onPressed: () => context.go('/credits'),
+          ),
+          const SyncStatusButton(),
+          const SizedBox(width: 8),
         ],
       ),
       body: _currentIndex == 0
