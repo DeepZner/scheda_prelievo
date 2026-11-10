@@ -12,6 +12,15 @@ final catalogoCategorieProvider = FutureProvider<List<String>>((ref) async {
   return repository.getCategorie();
 });
 
+/// Alias per compatibilità
+final categorieListProvider = catalogoCategorieProvider;
+
+/// Provider che restituisce l'elenco delle categorie con 'Tutti' come primo elemento
+final categorieConTuttiProvider = FutureProvider<List<String>>((ref) async {
+  final categorie = await ref.watch(catalogoCategorieProvider.future);
+  return ['Tutti', ...categorie];
+});
+
 final catalogoByCategoriaProvider =
     FutureProvider.family<List<Catalogo>, String>((ref, categoria) async {
   final repository = ref.watch(catalogoRepositoryProvider);

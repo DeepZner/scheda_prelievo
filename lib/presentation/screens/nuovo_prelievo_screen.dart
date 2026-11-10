@@ -434,36 +434,45 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
                       },
                     ),
                   ),
-                  // Chip orizzontali per filtro categorie
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                    child: Row(
-                      children: [
-                        'Tutti',
-                        'Corde',
-                        'Armo',
-                        'Trapano',
-                        'Disostr.',
-                        'Attrezzature',
-                        'Rilievo',
-                      ].map((cat) {
-                        final isSelected = selectedCategory == cat;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 6),
-                          child: FilterChip(
-                            selected: isSelected,
-                            label: Text(cat),
-                            onSelected: (_) {
-                              setModalState(() {
-                                selectedCategory = cat;
-                                _ultimaCategoriaSelezionata = cat;
-                              });
-                            },
-                          ),
-                        );
-                      }).toList(),
-                    ),
+                  // Chip orizzontali per filtro categorie dinamiche da SQLite
+                  Consumer(
+                    builder: (chipCtx, ref, _) {
+                      final categorieAsync = ref.watch(categorieConTuttiProvider);
+                      final categorieList = categorieAsync.valueOrNull ??
+                          [
+                            'Tutti',
+                            'Corde',
+                            'Armo',
+                            'Trapano',
+                            'Disostr.',
+                            'Attrezzature',
+                            'Rilievo',
+                          ];
+
+                      return SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                        child: Row(
+                          children: categorieList.map((cat) {
+                            final isSelected =
+                                selectedCategory.toLowerCase() == cat.toLowerCase();
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: FilterChip(
+                                selected: isSelected,
+                                label: Text(cat),
+                                onSelected: (_) {
+                                  setModalState(() {
+                                    selectedCategory = cat;
+                                    _ultimaCategoriaSelezionata = cat;
+                                  });
+                                },
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      );
+                    },
                   ),
                   const Divider(height: 1),
                   Expanded(
@@ -664,20 +673,26 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
   }
 
   IconData _iconaPerCategoria(String categoria) {
-    switch (categoria.toLowerCase()) {
-      case 'corde':
-        return Icons.linear_scale;
-      case 'armo':
-        return Icons.link;
-      case 'trapano':
-        return Icons.build;
-      case 'rilievo':
-        return Icons.square_foot;
-      case 'disostr.':
-        return Icons.hardware;
-      default:
-        return Icons.handyman;
+    final lower = categoria.toLowerCase().trim();
+    if (lower.contains('cord')) return Icons.linear_scale;
+    if (lower.contains('arm')) return Icons.link;
+    if (lower.contains('trapan') || lower.contains('tassell')) return Icons.build;
+    if (lower.contains('riliev') || lower.contains('topo') || lower.contains('gps')) {
+      return Icons.square_foot;
     }
+    if (lower.contains('disostr') || lower.contains('esplos')) return Icons.hardware;
+    if (lower.contains('sub') || lower.contains('sifon')) return Icons.scuba_diving;
+    if (lower.contains('bio') || lower.contains('fauna')) return Icons.pest_control;
+    if (lower.contains('soccors') || lower.contains('medic') || lower.contains('emergenz')) {
+      return Icons.medical_services;
+    }
+    if (lower.contains('illumin') || lower.contains('luce') || lower.contains('faro')) {
+      return Icons.flashlight_on;
+    }
+    if (lower.contains('tenda') || lower.contains('bivacc') || lower.contains('campo')) {
+      return Icons.cabin;
+    }
+    return Icons.handyman;
   }
 
   Future<void> _salvaPrelievo() async {

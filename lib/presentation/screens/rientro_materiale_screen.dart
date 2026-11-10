@@ -2045,35 +2045,44 @@ class _ModalAggiungiMaterialePrelievoState
             },
           ),
         ),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          child: Row(
-            children: [
-              'Tutti',
-              'Corde',
-              'Armo',
-              'Trapano',
-              'Disostr.',
-              'Attrezzature',
-              'Rilievo',
-            ].map((cat) {
-              final isSel = _selectedCategory == cat;
-              return Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: FilterChip(
-                  selected: isSel,
-                  label: Text(cat),
-                  onSelected: (_) {
-                    setState(() {
-                      _selectedCategory = cat;
-                    });
-                    widget.onCategoryChanged?.call(cat);
-                  },
-                ),
-              );
-            }).toList(),
-          ),
+        Consumer(
+          builder: (chipCtx, ref, _) {
+            final categorieAsync = ref.watch(categorieConTuttiProvider);
+            final categorieList = categorieAsync.valueOrNull ??
+                [
+                  'Tutti',
+                  'Corde',
+                  'Armo',
+                  'Trapano',
+                  'Disostr.',
+                  'Attrezzature',
+                  'Rilievo',
+                ];
+
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              child: Row(
+                children: categorieList.map((cat) {
+                  final isSel =
+                      _selectedCategory.toLowerCase() == cat.toLowerCase();
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: FilterChip(
+                      selected: isSel,
+                      label: Text(cat),
+                      onSelected: (_) {
+                        setState(() {
+                          _selectedCategory = cat;
+                        });
+                        widget.onCategoryChanged?.call(cat);
+                      },
+                    ),
+                  );
+                }).toList(),
+              ),
+            );
+          },
         ),
         const Divider(height: 1),
         Expanded(

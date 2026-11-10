@@ -259,6 +259,42 @@ class SyncStatusButton extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 10),
+              // Pulsante per aggiornare il catalogo materiali da Google Sheets
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.inventory_2_outlined),
+                  label: const Text('AGGIORNA CATALOGO DA SHEETS'),
+                  onPressed: () async {
+                    if (configuredUrl.isEmpty) {
+                      Navigator.pop(ctx);
+                      mostraDialogImpostazioniUrl(context, ref);
+                      return;
+                    }
+
+                    Navigator.pop(ctx);
+                    final count = await ref
+                        .read(syncControllerProvider.notifier)
+                        .sincronizzaCatalogoDaGoogleSheets();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          backgroundColor: count > 0
+                              ? Colors.green.shade800
+                              : Colors.orange.shade800,
+                          content: Text(
+                            count > 0
+                                ? 'Catalogo aggiornato: $count materiali e categorie caricati da Google Sheets!'
+                                : 'Nessun nuovo materiale trovato o catalogo già allineato.',
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(height: 10),
               // Pulsante per reinizializzare il database SQLite locale (reset and seed)
               SizedBox(
                 width: double.infinity,

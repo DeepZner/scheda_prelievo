@@ -74,6 +74,11 @@ class SyncController extends StateNotifier<AsyncValue<SyncResult?>> {
         onUploadPayload: onUploadPayload,
         webAppUrlOverride: webAppUrlOverride,
       );
+      try {
+        await service.aggiornaCatalogoDaRemoto(webAppUrlOverride);
+        _ref.invalidate(catalogoListProvider);
+        _ref.invalidate(catalogoCategorieProvider);
+      } catch (_) {}
       _invalidateAllPrelieviProviders();
       return result;
     });
