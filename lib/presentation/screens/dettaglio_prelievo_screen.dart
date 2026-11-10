@@ -400,8 +400,20 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
                 ),
                 if (haContenuto && !isAnnullato)
                   IconButton(
+                    style: IconButton.styleFrom(
+                      minimumSize: const Size(48, 48),
+                    ),
                     icon: const Icon(Icons.edit_outlined),
                     tooltip: 'Modifica relazione o allegato',
+                    onPressed: () => context.push('/prelievo/${p.id}/relazione'),
+                  ),
+                if (!haContenuto && !isAnnullato)
+                  IconButton.filledTonal(
+                    style: IconButton.styleFrom(
+                      minimumSize: const Size(48, 48),
+                    ),
+                    icon: const Icon(Icons.add_rounded, size: 24),
+                    tooltip: 'Aggiungi relazione o allegato',
                     onPressed: () => context.push('/prelievo/${p.id}/relazione'),
                   ),
               ],
@@ -543,7 +555,7 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
                     ),
                     icon: const Icon(Icons.edit_note, size: 22),
                     label: const Text(
-                      'MODIFICA RELAZIONE / ALLEGATO',
+                      'MODIFICA RELAZIONE',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     onPressed: () => context.push('/prelievo/${p.id}/relazione'),
@@ -552,34 +564,23 @@ class DettaglioPrelievoScreen extends ConsumerWidget {
               ],
             ] else ...[
               const SizedBox(height: 10),
-              Text(
-                'Aggiungi note sull\'esplorazione, una relazione di uscita o un documento allegato (PDF, Word, OpenOffice, immagini fino a 20MB). Disponibile anche a materiale riconsegnato.',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey.shade700,
-                  height: 1.3,
-                ),
-              ),
-              if (!isAnnullato) ...[
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+              InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: isAnnullato
+                    ? null
+                    : () => context.push('/prelievo/${p.id}/relazione'),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Text(
+                    'Aggiungi note sull\'esplorazione, una relazione di uscita o un documento allegato (PDF, Word, OpenOffice, immagini fino a 20MB). Disponibile anche a materiale riconsegnato.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey.shade700,
+                      height: 1.35,
                     ),
-                    icon: const Icon(Icons.add_circle_outline, size: 20),
-                    label: const Text(
-                      'AGGIUNGI RELAZIONE / ALLEGATO',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    onPressed: () => context.push('/prelievo/${p.id}/relazione'),
                   ),
                 ),
-              ],
+              ),
             ],
           ],
         ),
