@@ -241,6 +241,46 @@ class GoogleSheetsClient {
     }
   }
 
+  /// Invia la relazione di una scheda direttamente alla Web App (azione salva_relazione)
+  Future<bool> salvaRelazioneRemota({
+    required String webAppUrl,
+    required String schedaId,
+    required String autore,
+    required String testo,
+  }) async {
+    final cleanUrl = sanitizeUrl(webAppUrl);
+    if (cleanUrl.isEmpty) return false;
+
+    try {
+      final payload = jsonEncode({
+        'action': 'salva_relazione',
+        'scheda_id': schedaId,
+        'autore': autore,
+        'testo': testo,
+      });
+
+      var response = await _client.post(
+        Uri.parse(cleanUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: payload,
+      );
+
+      if ((response.statusCode == 302 || response.statusCode == 301) &&
+          response.headers['location'] != null) {
+        final redirectUrl = response.headers['location']!;
+        response = await _client.get(Uri.parse(redirectUrl));
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final dynamic data = jsonDecode(response.body);
+        return data is Map && data['status'] == 'success';
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Scarica tutti i prelievi e i dettagli salvati nel foglio Google
   Future<GoogleSheetsDownloadResult> fetchPrelieviEDettagli(String webAppUrl) async {
     try {

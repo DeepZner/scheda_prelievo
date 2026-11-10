@@ -467,21 +467,154 @@ function buildSchedaHtmlOutput(prelievo, dettagli) {
     }
   }
 
-  let relazioneHtml = "";
-  if (prelievo.relazione || prelievo.allegatoNome) {
-    relazioneHtml = '<div class="relazione-box">' +
-      '<div class="relazione-title">📖 Relazione di Esplorazione / Uscita</div>' +
-      ((prelievo.relazioneAutore || prelievo.relazioneData) 
-        ? '<div class="relazione-meta">✍️ ' + escapeHtml(prelievo.relazioneAutore) + (prelievo.relazioneData ? ' • 📅 ' + escapeHtml(prelievo.relazioneData) : '') + '</div>' 
-        : '') +
-      (prelievo.relazione ? '<div class="relazione-body">' + escapeHtml(prelievo.relazione).replace(/\n/g, '<br>') + '</div>' : '') +
-      (prelievo.allegatoNome 
-        ? '<div class="relazione-attachment">📎 Documento Allegato: <strong>' + escapeHtml(prelievo.allegatoNome) + '</strong>' + 
-          (prelievo.allegatoDriveUrl ? ' <a href="' + escapeHtml(prelievo.allegatoDriveUrl) + '" target="_blank" class="btn-attachment">Visualizza</a>' : '') + 
-          '</div>' 
-        : '') +
+  const isAnnullata = sLower.includes("annullat");
+  const haRelazione = Boolean(prelievo.relazione && prelievo.relazione.trim().length > 0);
+  const autoreRelazioneVal = prelievo.relazioneAutore || prelievo.responsabile || "";
+
+  let relazioneHtml = '<div class="relazione-box" id="relazioneBox">' +
+    '<div class="relazione-header">' +
+    '<div class="relazione-title">📖 Relazione di Esplorazione / Uscita</div>' +
+    (!isAnnullata ? '<button type="button" class="btn-relazione-action" id="btnToggleRelazione" onclick="toggleRelazioneEditor()">' + (haRelazione ? '✏️ Modifica Relazione' : '📝 Scrivi Relazione') + '</button>' : '') +
+    '</div>' +
+    '<div id="relazioneStatusAlert" class="status-alert" style="display:none;"></div>' +
+    '<div id="relazioneView">' +
+    '<div class="relazione-meta" id="relazioneMeta" style="' + ((prelievo.relazioneAutore || prelievo.relazioneData) ? '' : 'display:none;') + '">' +
+    '✍️ <span id="relazioneAutoreSpan">' + escapeHtml(prelievo.relazioneAutore || "") + '</span>' +
+    '<span id="relazioneDataSpan">' + (prelievo.relazioneData ? ' • 📅 ' + escapeHtml(prelievo.relazioneData) : '') + '</span>' +
+    '</div>' +
+    '<div class="relazione-body" id="relazioneBody">' +
+    (haRelazione ? escapeHtml(prelievo.relazione).replace(/\n/g, '<br>') : '<em style="color:#64748b;">Nessuna relazione ancora inserita. Chi ha partecipato all\'uscita può redigerla cliccando su "Scrivi Relazione".</em>') +
+    '</div>' +
+    (prelievo.allegatoNome ? '<div class="relazione-attachment">📎 Documento Allegato: <strong>' + escapeHtml(prelievo.allegatoNome) + '</strong>' + (prelievo.allegatoDriveUrl ? ' <a href="' + escapeHtml(prelievo.allegatoDriveUrl) + '" target="_blank" class="btn-attachment">Visualizza</a>' : '') + '</div>' : '') +
+    '</div>';
+
+  if (!isAnnullata) {
+    relazioneHtml += '<div id="relazioneEditor" style="display:none;" class="relazione-editor-container">' +
+      '<div class="form-group">' +
+      '<label for="inputRelAutore" class="form-label">Autore / Redattore della relazione <span style="color:#dc2626;">*</span></label>' +
+      '<input type="text" id="inputRelAutore" class="form-control" placeholder="Es. Nome e Cognome" value="' + escapeHtml(autoreRelazioneVal) + '">' +
+      '</div>' +
+      '<div class="form-group">' +
+      '<label for="inputRelTesto" class="form-label">Testo della Relazione <span style="color:#dc2626;">*</span></label>' +
+      '<textarea id="inputRelTesto" class="form-control" rows="8" placeholder="Descrivi l\'uscita, obiettivi, partecipanti, condizioni grotta, materiali utilizzati, note e prosecuzioni...">' + escapeHtml(prelievo.relazione || '') + '</textarea>' +
+      '</div>' +
+      '<div class="editor-buttons">' +
+      '<button type="button" class="btn-save" id="btnSalvaRelazione" onclick="salvaRelazione()">💾 Salva Relazione</button>' +
+      '<button type="button" class="btn-cancel" onclick="toggleRelazioneEditor(false)">Annulla</button>' +
+      '</div>' +
       '</div>';
   }
+
+  relazioneHtml += '</div>';
+
+  const scriptContent = '<script>' +
+    'var SCHEDA_ID = ' + JSON.stringify(prelievo.id) + ';' +
+    'var isEditing = false;' +
+    'function toggleRelazioneEditor(forceState) {' +
+    '  var view = document.getElementById("relazioneView");' +
+    '  var editor = document.getElementById("relazioneEditor");' +
+    '  var btn = document.getElementById("btnToggleRelazione");' +
+    '  if (!view || !editor) return;' +
+    '  isEditing = (typeof forceState === "boolean") ? forceState : !isEditing;' +
+    '  if (isEditing) {' +
+    '    view.style.display = "none";' +
+    '    editor.style.display = "block";' +
+    '    if (btn) btn.style.display = "none";' +
+    '    var txt = document.getElementById("inputRelTesto");' +
+    '    if (txt) { txt.focus(); }' +
+    '  } else {' +
+    '    view.style.display = "block";' +
+    '    editor.style.display = "none";' +
+    '    if (btn) btn.style.display = "inline-block";' +
+    '    nascondiAlert();' +
+    '  }' +
+    '}' +
+    'function mostraAlert(msg, isSuccess) {' +
+    '  var alert = document.getElementById("relazioneStatusAlert");' +
+    '  if (!alert) return;' +
+    '  alert.className = isSuccess ? "status-alert alert-success" : "status-alert alert-error";' +
+    '  alert.innerHTML = msg;' +
+    '  alert.style.display = "block";' +
+    '}' +
+    'function nascondiAlert() {' +
+    '  var alert = document.getElementById("relazioneStatusAlert");' +
+    '  if (alert) alert.style.display = "none";' +
+    '}' +
+    'function salvaRelazione() {' +
+    '  var autore = (document.getElementById("inputRelAutore").value || "").trim();' +
+    '  var testo = (document.getElementById("inputRelTesto").value || "").trim();' +
+    '  var btnSave = document.getElementById("btnSalvaRelazione");' +
+    '  if (!autore) {' +
+    '    mostraAlert("⚠️ Inserisci l\'autore della relazione.", false);' +
+    '    document.getElementById("inputRelAutore").focus();' +
+    '    return;' +
+    '  }' +
+    '  if (!testo) {' +
+    '    mostraAlert("⚠️ Il testo della relazione non può essere vuoto.", false);' +
+    '    document.getElementById("inputRelTesto").focus();' +
+    '    return;' +
+    '  }' +
+    '  btnSave.disabled = true;' +
+    '  btnSave.innerHTML = "⏳ Salvataggio in corso...";' +
+    '  mostraAlert("Salvataggio su Google Sheets in corso...", true);' +
+    '  function onSuccess(res) {' +
+    '    btnSave.disabled = false;' +
+    '    btnSave.innerHTML = "💾 Salva Relazione";' +
+    '    if (res && res.status === "success") {' +
+    '      var meta = document.getElementById("relazioneMeta");' +
+    '      var autoreSpan = document.getElementById("relazioneAutoreSpan");' +
+    '      var dataSpan = document.getElementById("relazioneDataSpan");' +
+    '      var body = document.getElementById("relazioneBody");' +
+    '      var btnToggle = document.getElementById("btnToggleRelazione");' +
+    '      if (autoreSpan) autoreSpan.innerText = res.autore || autore;' +
+    '      if (dataSpan) dataSpan.innerText = " • 📅 " + (res.dataFormatted || "Adesso");' +
+    '      if (meta) meta.style.display = "block";' +
+    '      if (body) body.innerHTML = escapeHtmlClient(testo).replace(/\\n/g, "<br>");' +
+    '      if (btnToggle) btnToggle.innerText = "✏️ Modifica Relazione";' +
+    '      toggleRelazioneEditor(false);' +
+    '      mostraAlert("✓ Relazione salvata con successo su Google Sheets!", true);' +
+    '      setTimeout(nascondiAlert, 5000);' +
+    '    } else {' +
+    '      mostraAlert("❌ " + (res && res.message ? res.message : "Errore durante il salvataggio"), false);' +
+    '    }' +
+    '  }' +
+    '  function onError(err) {' +
+    '    btnSave.disabled = false;' +
+    '    btnSave.innerHTML = "💾 Salva Relazione";' +
+    '    mostraAlert("❌ Errore durante il salvataggio: " + (err && err.message ? err.message : err.toString()), false);' +
+    '  }' +
+    '  if (typeof google !== "undefined" && google.script && google.script.run) {' +
+    '    google.script.run' +
+    '      .withSuccessHandler(onSuccess)' +
+    '      .withFailureHandler(function(err) {' +
+    '        salvaViaFetch(SCHEDA_ID, autore, testo, onSuccess, onError);' +
+    '      })' +
+    '      .salvaRelazioneWeb(SCHEDA_ID, autore, testo);' +
+    '  } else {' +
+    '    salvaViaFetch(SCHEDA_ID, autore, testo, onSuccess, onError);' +
+    '  }' +
+    '}' +
+    'function salvaViaFetch(schedaId, autore, testo, onSuccess, onError) {' +
+    '  var url = window.location.href.split("?")[0];' +
+    '  fetch(url, {' +
+    '    method: "POST",' +
+    '    headers: { "Content-Type": "text/plain;charset=utf-8" },' +
+    '    body: JSON.stringify({' +
+    '      action: "salva_relazione",' +
+    '      scheda_id: schedaId,' +
+    '      autore: autore,' +
+    '      testo: testo' +
+    '    })' +
+    '  })' +
+    '  .then(function(r) { return r.json(); })' +
+    '  .then(onSuccess)' +
+    '  .catch(onError);' +
+    '}' +
+    'function escapeHtmlClient(str) {' +
+    '  if (!str) return "";' +
+    '  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/\'/g, "&#039;");' +
+    '}' +
+    '</script>';
 
   return '<!DOCTYPE html><html><head><meta charset="utf-8">' +
     '<meta name="viewport" content="width=device-width, initial-scale=1">' +
@@ -508,7 +641,24 @@ function buildSchedaHtmlOutput(prelievo, dettagli) {
     '.meta-value { font-size: 14px; font-weight: 600; color: #1e293b; }' +
     '.note-box { background: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px; padding: 10px 14px; margin-bottom: 20px; font-size: 13px; color: #78350f; }' +
     '.relazione-box { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 14px 18px; margin-bottom: 20px; }' +
-    '.relazione-title { font-size: 14px; font-weight: 700; color: #166534; margin-bottom: 6px; }' +
+    '.relazione-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px; }' +
+    '.relazione-title { font-size: 14px; font-weight: 700; color: #166534; }' +
+    '.btn-relazione-action { background: #16a34a; color: white; border: none; border-radius: 6px; padding: 6px 12px; font-size: 12px; font-weight: 700; cursor: pointer; transition: background 0.2s; }' +
+    '.btn-relazione-action:hover { background: #15803d; }' +
+    '.relazione-editor-container { margin-top: 12px; background: white; border: 1px solid #bbf7d0; border-radius: 10px; padding: 14px; }' +
+    '.form-group { margin-bottom: 12px; }' +
+    '.form-label { display: block; font-size: 11px; font-weight: 700; color: #166534; text-transform: uppercase; margin-bottom: 4px; }' +
+    '.form-control { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; font-family: inherit; color: #1e293b; transition: border-color 0.2s, box-shadow 0.2s; }' +
+    '.form-control:focus { outline: none; border-color: #16a34a; box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15); }' +
+    '.editor-buttons { display: flex; gap: 10px; margin-top: 14px; }' +
+    '.btn-save { background: #16a34a; color: white; border: none; border-radius: 8px; padding: 10px 18px; font-size: 13px; font-weight: 700; cursor: pointer; min-height: 42px; display: inline-flex; align-items: center; justify-content: center; }' +
+    '.btn-save:hover { background: #15803d; }' +
+    '.btn-save:disabled { background: #94a3b8; cursor: not-allowed; }' +
+    '.btn-cancel { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 16px; font-size: 13px; font-weight: 600; cursor: pointer; min-height: 42px; }' +
+    '.btn-cancel:hover { background: #e2e8f0; }' +
+    '.status-alert { padding: 10px 14px; border-radius: 8px; font-size: 12.5px; font-weight: 600; margin-bottom: 12px; }' +
+    '.alert-success { background: #dcfce7; color: #166534; border: 1px solid #86efac; }' +
+    '.alert-error { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }' +
     '.relazione-meta { font-size: 12px; color: #15803d; font-weight: 600; margin-bottom: 8px; }' +
     '.relazione-body { font-size: 13.5px; color: #14532d; line-height: 1.6; }' +
     '.relazione-attachment { margin-top: 10px; padding-top: 8px; border-top: 1px solid #dcfce7; font-size: 12px; color: #166534; }' +
@@ -528,7 +678,7 @@ function buildSchedaHtmlOutput(prelievo, dettagli) {
     '.summary-box { display: flex; justify-content: space-around; background: #0f172a; color: white; padding: 14px; border-radius: 12px; margin-top: 20px; font-weight: 700; font-size: 13px; }' +
     '.summary-metri { color: #fdba74; }' +
     '.footer { text-align: center; color: #94a3b8; font-size: 11px; margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; }' +
-    '@media print { body { background: white; padding: 0; } .container { box-shadow: none; border: none; max-width: 100%; } .btn-print { display: none; } }' +
+    '@media print { body { background: white; padding: 0; } .container { box-shadow: none; border: none; max-width: 100%; } .btn-print, .btn-relazione-action, #relazioneEditor, .status-alert { display: none !important; } }' +
     '</style></head><body>' +
     '<div class="container">' +
     '<div class="header">' +
@@ -558,7 +708,9 @@ function buildSchedaHtmlOutput(prelievo, dettagli) {
     (totMetri > 0 ? '<div class="summary-metri">Corde: ' + totMetri + ' m (' + totMatasse + ' ' + (totMatasse === 1 ? 'matassa' : 'matasse') + ')</div>' : '') +
     '</div>' +
     '<div class="footer">ID Scheda: ' + escapeHtml(prelievo.id) + '<br>Speleo Club Roma • Gestione Magazzino Offline-First</div>' +
-    '</div></div></body></html>';
+    '</div></div>' +
+    scriptContent +
+    '</body></html>';
 }
 
 function escapeHtml(str) {
@@ -569,6 +721,118 @@ function escapeHtml(str) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+/**
+ * Salva o aggiorna la relazione di una scheda prelievo da web share (chiamabile via google.script.run o POST)
+ */
+function salvaRelazioneWeb(schedaId, autore, testo) {
+  if (!schedaId) {
+    return { status: "error", message: "ID scheda non specificato." };
+  }
+
+  const cleanAutore = (autore || "").toString().trim();
+  const cleanTesto = (testo || "").toString().trim();
+
+  if (!cleanAutore) {
+    return { status: "error", message: "Specificare l'autore della relazione." };
+  }
+
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(15000);
+  } catch (e) {
+    return { status: "error", message: "Foglio temporaneamente occupato. Riprova tra qualche istante." };
+  }
+
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    setupSheetsIfNeeded(ss);
+    const sheetP = ss.getSheetByName(SHEET_PRELIEVI);
+    if (!sheetP) {
+      return { status: "error", message: "Foglio prelievi non trovato." };
+    }
+
+    const dataP = sheetP.getDataRange().getValues();
+    if (dataP.length <= 1) {
+      return { status: "error", message: "Nessuna scheda trovata nel foglio." };
+    }
+
+    const headerP = dataP[0].map(function(h) { return h.toString().toLowerCase().trim(); });
+    const colId = findColIndex(headerP, ["id", "id_prelievo", "id prelievo"], -1);
+    const colStato = findColIndex(headerP, ["stato"], -1);
+    const colRelazione = findColIndex(headerP, ["relazione", "relazione_testo", "testo relazione", "relazione uscita"], -1);
+    const colRelAutore = findColIndex(headerP, ["autore relazione", "relazione_autore", "autore_relazione"], -1);
+    const colRelData = findColIndex(headerP, ["data relazione", "relazione_data", "data_relazione"], -1);
+
+    if (colId < 0) {
+      return { status: "error", message: "Colonna ID non trovata nel foglio prelievi." };
+    }
+
+    let targetRowIndex = -1;
+    let targetRow = null;
+    for (let i = 1; i < dataP.length; i++) {
+      const row = dataP[i];
+      if (row[colId] && row[colId].toString().trim() === schedaId) {
+        targetRowIndex = i + 1; // 1-based index per SpreadsheetApp
+        targetRow = row;
+        break;
+      }
+    }
+
+    if (targetRowIndex < 0) {
+      return { status: "error", message: "Scheda (" + schedaId + ") non trovata sul foglio." };
+    }
+
+    if (colStato >= 0 && targetRow[colStato]) {
+      const stato = targetRow[colStato].toString().trim().toLowerCase();
+      if (stato.includes("annullat")) {
+        return { status: "error", message: "La scheda è stata annullata. Non è possibile modificare la relazione." };
+      }
+    }
+
+    let targetColRelazione = colRelazione;
+    let targetColRelAutore = colRelAutore;
+    let targetColRelData = colRelData;
+
+    if (targetColRelazione < 0 || targetColRelAutore < 0 || targetColRelData < 0) {
+      if (targetColRelazione < 0) {
+        const lastCol = sheetP.getLastColumn();
+        sheetP.getRange(1, lastCol + 1).setValue("Relazione");
+        targetColRelazione = lastCol;
+      }
+      if (targetColRelAutore < 0) {
+        const lastCol = sheetP.getLastColumn();
+        sheetP.getRange(1, lastCol + 1).setValue("Autore Relazione");
+        targetColRelAutore = lastCol;
+      }
+      if (targetColRelData < 0) {
+        const lastCol = sheetP.getLastColumn();
+        sheetP.getRange(1, lastCol + 1).setValue("Data Relazione");
+        targetColRelData = lastCol;
+      }
+    }
+
+    const now = new Date();
+    const nowIso = now.toISOString();
+    sheetP.getRange(targetRowIndex, targetColRelazione + 1).setValue(cleanTesto);
+    sheetP.getRange(targetRowIndex, targetColRelAutore + 1).setValue(cleanAutore);
+    sheetP.getRange(targetRowIndex, targetColRelData + 1).setValue(nowIso);
+
+    return {
+      status: "success",
+      message: "Relazione salvata con successo!",
+      schedaId: schedaId,
+      autore: cleanAutore,
+      testo: cleanTesto,
+      dataIso: nowIso,
+      dataFormatted: Utilities.formatDate(now, "Europe/Rome", "dd/MM/yyyy HH:mm")
+    };
+  } catch (err) {
+    return { status: "error", message: "Errore durante il salvataggio: " + err.toString() };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 /**
@@ -591,6 +855,12 @@ function doPost(e) {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     
     setupSheetsIfNeeded(ss);
+
+    // Gestione salvataggio relazione da web share o API
+    if (payload.action === "salva_relazione") {
+      const resRel = salvaRelazioneWeb(payload.scheda_id || payload.schedaId, payload.autore, payload.testo);
+      return jsonResponse(resRel);
+    }
 
     // Gestione richiesta eliminazione definitiva (Purge) schede annullate
     if (payload.action === "purge_annullati") {
