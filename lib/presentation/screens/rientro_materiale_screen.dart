@@ -1,11 +1,14 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../data/database/database_helper.dart';
+import '../../domain/models/catalogo.dart';
 import '../../domain/models/dettaglio_prelievo.dart';
 import '../../domain/models/prelievo.dart';
 import '../../domain/models/stato_prelievo.dart';
+import '../providers/catalogo_provider.dart';
 import '../providers/prelievi_provider.dart';
 import '../widgets/quantity_stepper.dart';
 import '../widgets/stato_badge.dart';
@@ -353,6 +356,21 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
     if (oldWidget.prelievo.id != widget.prelievo.id) {
       _flushDebounceTimers();
       _initValues();
+    } else {
+      // Allinea le mappe di stato locali se sono stati aggiunti, rimossi o modificati materiali
+      final existingIds =
+          widget.prelievo.dettagli.map((d) => d.idDettaglio).toSet();
+      _spunte.removeWhere((id, _) => !existingIds.contains(id));
+      _qtaTornate.removeWhere((id, _) => !existingIds.contains(id));
+      _noteTexts.removeWhere((id, _) => !existingIds.contains(id));
+
+      for (final d in widget.prelievo.dettagli) {
+        if (!_spunte.containsKey(d.idDettaglio)) {
+          _spunte[d.idDettaglio] = d.spuntaRientro;
+          _qtaTornate[d.idDettaglio] = d.qtaTornata ?? d.quantitaPrelevata;
+          _noteTexts[d.idDettaglio] = d.noteRientro ?? '';
+        }
+      }
     }
   }
 
@@ -467,6 +485,135 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
         );
   }
 
+  Future<void> _modificaQuantitaPrelevataRiga({
+    required DettaglioPrelievo d,
+    required int nuovaQta,
+    required bool allineaRientro,
+  }) async {
+    if (allineaRientro) {
+      _qtaTornate[d.idDettaglio] = nuovaQta;
+    }
+    setState(() {});
+
+    await ref
+        .read(prelieviControllerProvider.notifier)
+        .aggiornaQuantitaPrelevata(
+          idDettaglio: d.idDettaglio,
+          nuovaQuantitaPrelevata: nuovaQta,
+          prelievoId: widget.prelievo.id,
+        );
+
+    if (allineaRientro) {
+      await ref
+          .read(prelieviControllerProvider.notifier)
+          .aggiornaDettaglioRientro(
+            idDettaglio: d.idDettaglio,
+            spuntaRientro: _spunte[d.idDettaglio] ?? true,
+            qtaTornata: nuovaQta,
+            noteRientro: _noteTexts[d.idDettaglio]?.trim().isEmpty ?? true
+                ? null
+                : _noteTexts[d.idDettaglio]?.trim(),
+            invalidate: false,
+          );
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.indigo.shade800,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          content: Text(
+            'Quantità originaria aggiornata a $nuovaQta ${d.unitaMisura}',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  Future<void> _eliminaRiga({required DettaglioPrelievo d}) async {
+    _debounceTimers[d.idDettaglio]?.cancel();
+    _debounceTimers.remove(d.idDettaglio);
+    setState(() {
+      _spunte.remove(d.idDettaglio);
+      _qtaTornate.remove(d.idDettaglio);
+      _noteTexts.remove(d.idDettaglio);
+    });
+
+    await ref
+        .read(prelieviControllerProvider.notifier)
+        .eliminaDettaglioPrelievo(
+          idDettaglio: d.idDettaglio,
+          prelievoId: widget.prelievo.id,
+        );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.grey.shade900,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          content: Text(
+            'Materiale "${d.nomeMateriale ?? d.materialeId}" rimosso dal prelievo.',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  Future<void> _mostraModalAggiuntaMateriale() async {
+    final nuovoDettaglio = await showModalBottomSheet<DettaglioPrelievo>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => _ModalAggiungiMaterialePrelievo(
+        prelievoId: widget.prelievo.id,
+      ),
+    );
+
+    if (nuovoDettaglio != null && mounted) {
+      setState(() {
+        _spunte[nuovoDettaglio.idDettaglio] = nuovoDettaglio.spuntaRientro;
+        _qtaTornate[nuovoDettaglio.idDettaglio] =
+            nuovoDettaglio.qtaTornata ?? nuovoDettaglio.quantitaPrelevata;
+        _noteTexts[nuovoDettaglio.idDettaglio] =
+            nuovoDettaglio.noteRientro ?? '';
+      });
+
+      await ref
+          .read(prelieviControllerProvider.notifier)
+          .aggiungiDettaglioPrelievo(nuovoDettaglio);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.green.shade800,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            content: Text(
+              'Aggiunto "${nuovoDettaglio.nomeMateriale}" al prelievo!',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _spuntaTutto() async {
     for (final d in widget.prelievo.dettagli) {
       _spunte[d.idDettaglio] = true;
@@ -495,6 +642,7 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
     int totRientratiMetri = 0;
     int totRientratiPz = 0;
     final List<String> materialiMancanti = [];
+    final List<String> materialiEccedenti = [];
 
     for (final d in widget.prelievo.dettagli) {
       final spuntato = _spunte[d.idDettaglio] ?? false;
@@ -515,6 +663,10 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
         final nome = d.nomeMateriale ?? d.materialeId;
         final ammanco = d.quantitaPrelevata - qtaEffettiva;
         materialiMancanti.add('$nome: mancanti $ammanco ${d.unitaMisura}');
+      } else if (qta > d.quantitaPrelevata) {
+        final nome = d.nomeMateriale ?? d.materialeId;
+        final eccedenza = qta - d.quantitaPrelevata;
+        materialiEccedenti.add('$nome: eccedenza +$eccedenza ${d.unitaMisura}');
       }
 
       dettagliAggiornati.add(
@@ -562,6 +714,7 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
         tuttoRientrato: tuttoRientrato,
         riepilogoRientro: riepilogoRientro,
         materialiMancanti: materialiMancanti,
+        materialiEccedenti: materialiEccedenti,
         dateStr: dateStr,
         initialOperatore: ultimoOperatore,
         initialMagazzinieri: defaultMagazzino,
@@ -629,8 +782,43 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
     final dettagli = widget.prelievo.dettagli;
 
     if (dettagli.isEmpty) {
-      return const Center(
-        child: Text('Nessun materiale associato a questo prelievo.'),
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.inventory_2_outlined,
+                  size: 64, color: Colors.grey.shade400),
+              const SizedBox(height: 16),
+              const Text(
+                'Nessun materiale in questa scheda.',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Puoi aggiungere materiali al prelievo con il pulsante qui sotto.',
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(240, 52),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                icon: const Icon(Icons.add_circle_outline_rounded, size: 22),
+                label: const Text(
+                  'AGGIUNGI MATERIALE',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
+                onPressed: _mostraModalAggiuntaMateriale,
+              ),
+            ],
+          ),
+        ),
       );
     }
 
@@ -704,11 +892,34 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
         Expanded(
           child: ListView.builder(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            itemCount: dettagli.length,
+            itemCount: dettagli.length + 1,
             itemBuilder: (context, index) {
+              if (index == dettagli.length) {
+                return Padding(
+                  padding: const EdgeInsets.only(top: 8, bottom: 20),
+                  child: FilledButton.tonalIcon(
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(52),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    icon:
+                        const Icon(Icons.add_circle_outline_rounded, size: 22),
+                    label: const Text(
+                      'AGGIUNGI MATERIALE AL PRELIEVO',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    onPressed: _mostraModalAggiuntaMateriale,
+                  ),
+                );
+              }
+
               final d = dettagli[index];
               final isSpuntato = _spunte[d.idDettaglio] ?? false;
-              final qtaTornata = _qtaTornate[d.idDettaglio] ?? d.quantitaPrelevata;
+              final qtaTornata =
+                  _qtaTornate[d.idDettaglio] ?? d.quantitaPrelevata;
               final currentNote = _noteTexts[d.idDettaglio] ?? '';
 
               return _DettaglioRientroCard(
@@ -754,6 +965,16 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
                       note: text,
                     );
                   });
+                },
+                onModificaPrelevata: (nuovaQta, allinea) {
+                  _modificaQuantitaPrelevataRiga(
+                    d: d,
+                    nuovaQta: nuovaQta,
+                    allineaRientro: allinea,
+                  );
+                },
+                onElimina: () {
+                  _eliminaRiga(d: d);
                 },
               );
             },
@@ -848,6 +1069,9 @@ class _DettaglioRientroCard extends StatefulWidget {
   final ValueChanged<bool> onSpuntaChanged;
   final ValueChanged<int> onQtaChanged;
   final ValueChanged<String> onNoteChanged;
+  final void Function(int nuovaQtaPrelevata, bool allineaRientro)?
+      onModificaPrelevata;
+  final VoidCallback? onElimina;
 
   const _DettaglioRientroCard({
     super.key,
@@ -858,6 +1082,8 @@ class _DettaglioRientroCard extends StatefulWidget {
     required this.onSpuntaChanged,
     required this.onQtaChanged,
     required this.onNoteChanged,
+    this.onModificaPrelevata,
+    this.onElimina,
   });
 
   @override
@@ -887,22 +1113,306 @@ class _DettaglioRientroCardState extends State<_DettaglioRientroCard> {
     super.dispose();
   }
 
+  void _mostraDialogModificaQuantita(BuildContext context) {
+    final d = widget.dettaglio;
+    final theme = Theme.of(context);
+    final controller = TextEditingController(text: '${d.quantitaPrelevata}');
+    int currentQta = d.quantitaPrelevata;
+    bool allineaRientro = widget.isSpuntato;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (dCtx, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: Row(
+                children: [
+                  Icon(
+                    Icons.edit_outlined,
+                    color: d.isMetri
+                        ? Colors.deepOrange
+                        : theme.colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'Modifica Quantità Prelevata',
+                      style:
+                          TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      d.nomeMateriale ?? d.materialeId,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 15),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Correggi la quantità registrata alla partenza (es. per errore di inserimento iniziale).',
+                      style:
+                          TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      d.isMetri
+                          ? 'Nuova lunghezza in metri (m):'
+                          : 'Nuova quantità in pezzi (pz):',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 13),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        IconButton.filledTonal(
+                          style: IconButton.styleFrom(
+                            minimumSize: const Size(48, 48),
+                          ),
+                          icon: const Icon(Icons.remove),
+                          onPressed: () {
+                            final step = d.isMetri ? 5 : 1;
+                            if (currentQta > step) {
+                              setDialogState(() {
+                                currentQta -= step;
+                                controller.text = '$currentQta';
+                              });
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 12),
+                        SizedBox(
+                          width: 110,
+                          child: TextField(
+                            controller: controller,
+                            keyboardType: TextInputType.number,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            decoration: InputDecoration(
+                              suffixText: d.unitaMisura,
+                              contentPadding:
+                                  const EdgeInsets.symmetric(vertical: 8),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            onChanged: (val) {
+                              final parsed = int.tryParse(val.trim());
+                              if (parsed != null && parsed > 0) {
+                                currentQta = parsed;
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        IconButton.filledTonal(
+                          style: IconButton.styleFrom(
+                            minimumSize: const Size(48, 48),
+                          ),
+                          icon: const Icon(Icons.add),
+                          onPressed: () {
+                            final step = d.isMetri ? 5 : 1;
+                            setDialogState(() {
+                              currentQta += step;
+                              controller.text = '$currentQta';
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                    if (d.isMetri) ...[
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          10,
+                          20,
+                          30,
+                          40,
+                          50,
+                          60,
+                          70,
+                          80,
+                          100
+                        ].map((m) {
+                          return ActionChip(
+                            label: Text('${m}m'),
+                            onPressed: () {
+                              setDialogState(() {
+                                currentQta = m;
+                                controller.text = '$m';
+                              });
+                            },
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                    if (widget.isSpuntato) ...[
+                      const SizedBox(height: 16),
+                      Card(
+                        elevation: 0,
+                        color: Colors.blue.shade50,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          side: BorderSide(color: Colors.blue.shade200),
+                        ),
+                        child: CheckboxListTile(
+                          contentPadding:
+                              const EdgeInsets.symmetric(horizontal: 10),
+                          value: allineaRientro,
+                          title: const Text(
+                            'Allinea quantità rientrata',
+                            style: TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.bold),
+                          ),
+                          subtitle: Text(
+                            'Imposta anche la quantità tornata pari a $currentQta ${d.unitaMisura}',
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                          onChanged: (val) {
+                            setDialogState(() {
+                              allineaRientro = val ?? false;
+                            });
+                          },
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(48, 48),
+                  ),
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('ANNULLA'),
+                ),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(48, 48),
+                  ),
+                  onPressed: () {
+                    final finalVal =
+                        int.tryParse(controller.text.trim()) ?? currentQta;
+                    if (finalVal <= 0) return;
+                    Navigator.of(ctx).pop();
+                    widget.onModificaPrelevata?.call(finalVal, allineaRientro);
+                  },
+                  child: const Text('SALVA MODIFICA'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _mostraConfermaEliminazione(BuildContext context) {
+    final d = widget.dettaglio;
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.delete_forever_rounded,
+                  color: Colors.red.shade700, size: 28),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Rimuovere Materiale?',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Vuoi eliminare "${d.nomeMateriale ?? d.materialeId}" dalla scheda di prelievo?',
+                style:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Usa questa opzione se il materiale era stato inserito per errore e non è mai uscito dal magazzino.\n\nUna volta rimosso, non risulterà né come prelevato né come mancante.',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('ANNULLA'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.red.shade700,
+                minimumSize: const Size(48, 48),
+              ),
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                widget.onElimina?.call();
+              },
+              child: const Text('RIMUOVI'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final d = widget.dettaglio;
     final isSpuntato = widget.isSpuntato;
     final qtaTornata = widget.qtaTornata;
+    final isEccedenza = isSpuntato && qtaTornata > d.quantitaPrelevata;
     final isMancante = isSpuntato && qtaTornata < d.quantitaPrelevata;
+
+    Color borderColor;
+    if (isSpuntato) {
+      if (isEccedenza) {
+        borderColor = Colors.purple.shade600;
+      } else if (isMancante) {
+        borderColor = Colors.orange.shade800;
+      } else {
+        borderColor = Colors.green.shade600;
+      }
+    } else {
+      borderColor = Colors.grey.shade300;
+    }
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: isSpuntato
-              ? (isMancante ? Colors.orange.shade800 : Colors.green.shade600)
-              : Colors.grey.shade300,
+          color: borderColor,
           width: isSpuntato ? 2.5 : 1,
         ),
       ),
@@ -918,45 +1428,93 @@ class _DettaglioRientroCardState extends State<_DettaglioRientroCard> {
                   height: 48,
                   child: Switch(
                     value: isSpuntato,
-                    activeTrackColor: Colors.green.shade700,
+                    activeTrackColor: isEccedenza
+                        ? Colors.purple.shade700
+                        : Colors.green.shade700,
                     onChanged: widget.onSpuntaChanged,
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(8),
-                    onTap: () => widget.onSpuntaChanged(!isSpuntato),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () => widget.onSpuntaChanged(!isSpuntato),
+                        child: Text(
                           d.nomeMateriale ?? d.materialeId,
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
-                            decoration: isSpuntato && !isMancante
+                            decoration: isSpuntato && !isMancante && !isEccedenza
                                 ? TextDecoration.lineThrough
                                 : null,
-                            color: isSpuntato && !isMancante
+                            color: isSpuntato && !isMancante && !isEccedenza
                                 ? Colors.grey.shade600
                                 : null,
                           ),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Prelevati originariamente: ${d.quantitaPrelevata} ${d.unitaMisura}',
-                          style: TextStyle(
-                            color: d.isMetri
-                                ? Colors.deepOrange
-                                : theme.colorScheme.primary,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Text(
+                            'Prelevati originariamente: ${d.quantitaPrelevata} ${d.unitaMisura}',
+                            style: TextStyle(
+                              color: d.isMetri
+                                  ? Colors.deepOrange
+                                  : theme.colorScheme.primary,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
+                          const SizedBox(width: 4),
+                          InkWell(
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: () => _mostraDialogModificaQuantita(context),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 4),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.edit_outlined,
+                                    size: 15,
+                                    color: d.isMetri
+                                        ? Colors.deepOrange
+                                        : theme.colorScheme.primary,
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    'Modifica',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: d.isMetri
+                                          ? Colors.deepOrange
+                                          : theme.colorScheme.primary,
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.delete_outline_rounded,
+                      color: Colors.red.shade400, size: 24),
+                  tooltip: 'Rimuovi materiale dal prelievo',
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size(48, 48),
+                  ),
+                  onPressed: () => _mostraConfermaEliminazione(context),
                 ),
               ],
             ),
@@ -975,7 +1533,7 @@ class _DettaglioRientroCardState extends State<_DettaglioRientroCard> {
                   QuantityStepper(
                     value: qtaTornata,
                     minValue: 0,
-                    maxValue: d.quantitaPrelevata,
+                    maxValue: d.isMetri ? 9999 : 999,
                     unit: d.unitaMisura,
                     isMetri: d.isMetri,
                     itemName: d.nomeMateriale,
@@ -983,6 +1541,34 @@ class _DettaglioRientroCardState extends State<_DettaglioRientroCard> {
                   ),
                 ],
               ),
+              if (isEccedenza) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.purple.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.purple.shade300),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.arrow_upward_rounded,
+                          size: 16, color: Colors.purple.shade800),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Eccedenza riconsegnata: +${qtaTornata - d.quantitaPrelevata} ${d.unitaMisura}',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.purple.shade900,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 10),
               TextField(
                 controller: _noteController,
@@ -992,13 +1578,22 @@ class _DettaglioRientroCardState extends State<_DettaglioRientroCard> {
                   isDense: true,
                   labelText: isMancante
                       ? 'Note rientro (Ammanco di ${d.quantitaPrelevata - qtaTornata} ${d.unitaMisura})'
-                      : 'Note rientro / Condizioni (opzionale)',
-                  hintText: 'Es. 1 moschettone bloccato, corda tagliata/usurata',
+                      : isEccedenza
+                          ? 'Note rientro (Eccedenza di +${qtaTornata - d.quantitaPrelevata} ${d.unitaMisura})'
+                          : 'Note rientro / Condizioni (opzionale)',
+                  hintText:
+                      'Es. 1 moschettone bloccato, corda tagliata/usurata, materiale ritrovato',
                   prefixIcon: Icon(
                     isMancante
                         ? Icons.warning_amber_rounded
-                        : Icons.edit_note_rounded,
-                    color: isMancante ? Colors.orange : Colors.grey,
+                        : isEccedenza
+                            ? Icons.add_circle_outline_rounded
+                            : Icons.edit_note_rounded,
+                    color: isMancante
+                        ? Colors.orange
+                        : isEccedenza
+                            ? Colors.purple
+                            : Colors.grey,
                   ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
@@ -1029,6 +1624,7 @@ class _ConfermaRientroModalSheet extends StatefulWidget {
   final bool tuttoRientrato;
   final String riepilogoRientro;
   final List<String> materialiMancanti;
+  final List<String> materialiEccedenti;
   final String dateStr;
   final String initialOperatore;
   final String initialMagazzinieri;
@@ -1038,6 +1634,7 @@ class _ConfermaRientroModalSheet extends StatefulWidget {
     required this.tuttoRientrato,
     required this.riepilogoRientro,
     required this.materialiMancanti,
+    this.materialiEccedenti = const [],
     required this.dateStr,
     required this.initialOperatore,
     required this.initialMagazzinieri,
@@ -1113,7 +1710,9 @@ class _ConfermaRientroModalSheetState
                   Expanded(
                     child: Text(
                       widget.tuttoRientrato
-                          ? 'Conferma Rientro Completo'
+                          ? (widget.materialiEccedenti.isNotEmpty
+                              ? 'Conferma Rientro (con Eccedenze)'
+                              : 'Conferma Rientro Completo')
                           : 'Conferma Rientro con Ammanchi',
                       style: const TextStyle(
                         fontSize: 18,
@@ -1183,6 +1782,24 @@ class _ConfermaRientroModalSheetState
                           '• $m',
                           style: TextStyle(
                               fontSize: 12, color: Colors.red.shade900),
+                        ),
+                      ),
+                    ],
+                    if (widget.materialiEccedenti.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        'Eccedenze registrate:',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.purple.shade800,
+                        ),
+                      ),
+                      ...widget.materialiEccedenti.map(
+                        (m) => Text(
+                          '• $m',
+                          style: TextStyle(
+                              fontSize: 12, color: Colors.purple.shade900),
                         ),
                       ),
                     ],
@@ -1295,6 +1912,440 @@ class _ConfermaRientroModalSheetState
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ModalAggiungiMaterialePrelievo extends ConsumerStatefulWidget {
+  final String prelievoId;
+
+  const _ModalAggiungiMaterialePrelievo({
+    required this.prelievoId,
+  });
+
+  @override
+  ConsumerState<_ModalAggiungiMaterialePrelievo> createState() =>
+      _ModalAggiungiMaterialePrelievoState();
+}
+
+class _ModalAggiungiMaterialePrelievoState
+    extends ConsumerState<_ModalAggiungiMaterialePrelievo> {
+  String _selectedCategory = 'Tutti';
+  String _searchQuery = '';
+  Catalogo? _selectedMateriale;
+
+  int _quantitaPrelevata = 1;
+  bool _giaRientrato = true;
+  final TextEditingController _noteController = TextEditingController();
+  final TextEditingController _qtaController = TextEditingController(text: '1');
+
+  @override
+  void dispose() {
+    _noteController.dispose();
+    _qtaController.dispose();
+    super.dispose();
+  }
+
+  void _selezionaMateriale(Catalogo mat) {
+    setState(() {
+      _selectedMateriale = mat;
+      _quantitaPrelevata = mat.isMetri ? 50 : 1;
+      _qtaController.text = '$_quantitaPrelevata';
+      _giaRientrato = true;
+      _noteController.clear();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final catalogoAsync = ref.watch(catalogoListProvider);
+
+    return FractionallySizedBox(
+      heightFactor: 0.90,
+      child: Column(
+        children: [
+          // Drag handle
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 10),
+            width: 48,
+            height: 5,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade400,
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Row(
+              children: [
+                Icon(
+                  _selectedMateriale == null
+                      ? Icons.add_box_rounded
+                      : Icons.playlist_add_check_rounded,
+                  color: theme.colorScheme.primary,
+                  size: 26,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    _selectedMateriale == null
+                        ? 'Aggiungi Materiale al Prelievo'
+                        : 'Configura Materiale',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size(48, 48),
+                  ),
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+
+          Expanded(
+            child: _selectedMateriale == null
+                ? _buildSelezioneCatalogo(theme, catalogoAsync)
+                : _buildConfigurazioneMateriale(theme, _selectedMateriale!),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelezioneCatalogo(
+      ThemeData theme, AsyncValue<List<Catalogo>> catalogoAsync) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: TextField(
+            decoration: InputDecoration(
+              hintText: 'Cerca per nome o codice...',
+              prefixIcon: const Icon(Icons.search, size: 20),
+              isDense: true,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            onChanged: (val) {
+              setState(() {
+                _searchQuery = val.trim().toLowerCase();
+              });
+            },
+          ),
+        ),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          child: Row(
+            children: [
+              'Tutti',
+              'Corde',
+              'Armo',
+              'Trapano',
+              'Disostr.',
+              'Attrezzature',
+              'Rilievo',
+            ].map((cat) {
+              final isSel = _selectedCategory == cat;
+              return Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: FilterChip(
+                  selected: isSel,
+                  label: Text(cat),
+                  onSelected: (_) {
+                    setState(() {
+                      _selectedCategory = cat;
+                    });
+                  },
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: catalogoAsync.when(
+            data: (materiali) {
+              final filtrati = materiali.where((m) {
+                final matchCat = _selectedCategory == 'Tutti' ||
+                    m.categoria.toLowerCase() == _selectedCategory.toLowerCase();
+                final matchQuery = _searchQuery.isEmpty ||
+                    m.nomeOggetto.toLowerCase().contains(_searchQuery) ||
+                    m.idMateriale.toLowerCase().contains(_searchQuery);
+                return matchCat && matchQuery;
+              }).toList();
+
+              if (filtrati.isEmpty) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Text('Nessun materiale corrisponde ai filtri.'),
+                  ),
+                );
+              }
+
+              return ListView.builder(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                itemCount: filtrati.length,
+                itemBuilder: (ctx, index) {
+                  final mat = filtrati[index];
+                  return ListTile(
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    leading: CircleAvatar(
+                      backgroundColor: mat.isMetri
+                          ? Colors.deepOrange.shade100
+                          : theme.colorScheme.primaryContainer,
+                      child: Icon(
+                        mat.isMetri
+                            ? Icons.straighten_rounded
+                            : Icons.inventory_2_outlined,
+                        color: mat.isMetri
+                            ? Colors.deepOrange
+                            : theme.colorScheme.primary,
+                        size: 20,
+                      ),
+                    ),
+                    title: Text(
+                      mat.nomeOggetto,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Text(
+                      '${mat.categoria} • Misura in ${mat.unitaMisura}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => _selezionaMateriale(mat),
+                  );
+                },
+              );
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (err, _) => Center(child: Text('Errore: $err')),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildConfigurazioneMateriale(ThemeData theme, Catalogo mat) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconButton(
+                style: IconButton.styleFrom(minimumSize: const Size(48, 48)),
+                icon: const Icon(Icons.arrow_back),
+                tooltip: 'Torna all\'elenco catalogo',
+                onPressed: () {
+                  setState(() {
+                    _selectedMateriale = null;
+                  });
+                },
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      mat.nomeOggetto,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      '${mat.categoria} • Unità: ${mat.unitaMisura}',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: mat.isMetri
+                            ? Colors.deepOrange
+                            : theme.colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Quantità prelevata originariamente:',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconButton.filledTonal(
+                style: IconButton.styleFrom(minimumSize: const Size(48, 48)),
+                icon: const Icon(Icons.remove),
+                onPressed: () {
+                  final step = mat.isMetri ? 5 : 1;
+                  if (_quantitaPrelevata > step) {
+                    setState(() {
+                      _quantitaPrelevata -= step;
+                      _qtaController.text = '$_quantitaPrelevata';
+                    });
+                  }
+                },
+              ),
+              const SizedBox(width: 16),
+              SizedBox(
+                width: 120,
+                child: TextField(
+                  controller: _qtaController,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  decoration: InputDecoration(
+                    suffixText: mat.unitaMisura,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onChanged: (val) {
+                    final parsed = int.tryParse(val.trim());
+                    if (parsed != null && parsed > 0) {
+                      _quantitaPrelevata = parsed;
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 16),
+              IconButton.filledTonal(
+                style: IconButton.styleFrom(minimumSize: const Size(48, 48)),
+                icon: const Icon(Icons.add),
+                onPressed: () {
+                  final step = mat.isMetri ? 5 : 1;
+                  setState(() {
+                    _quantitaPrelevata += step;
+                    _qtaController.text = '$_quantitaPrelevata';
+                  });
+                },
+              ),
+            ],
+          ),
+          if (mat.isMetri) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [10, 20, 30, 40, 50, 60, 70, 80, 100].map((m) {
+                return ActionChip(
+                  label: Text('${m}m'),
+                  onPressed: () {
+                    setState(() {
+                      _quantitaPrelevata = m;
+                      _qtaController.text = '$m';
+                    });
+                  },
+                );
+              }).toList(),
+            ),
+          ],
+          const SizedBox(height: 20),
+          Card(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: Colors.green.shade300),
+            ),
+            color: Colors.green.shade50,
+            child: SwitchListTile(
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              title: const Text(
+                'Già verificato e rientrato',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              subtitle: Text(
+                _giaRientrato
+                    ? 'Il materiale verrà segnato come rientrato ($_quantitaPrelevata ${mat.unitaMisura})'
+                    : 'Il materiale rimarrà da verificare/mancante',
+                style: const TextStyle(fontSize: 12),
+              ),
+              value: _giaRientrato,
+              activeThumbColor: Colors.green.shade700,
+              onChanged: (val) {
+                setState(() {
+                  _giaRientrato = val;
+                });
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _noteController,
+            decoration: InputDecoration(
+              labelText: 'Note rientro (opzionale)',
+              hintText: 'Es. recuperato dal sacco armo, corda integra',
+              prefixIcon: const Icon(Icons.edit_note_rounded),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+          const SizedBox(height: 28),
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: FilledButton.icon(
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(52),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              icon: const Icon(Icons.check_circle_outline_rounded),
+              label: const Text(
+                'AGGIUNGI AL PRELIEVO',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              onPressed: () {
+                final qta =
+                    int.tryParse(_qtaController.text.trim()) ?? _quantitaPrelevata;
+                if (qta <= 0) return;
+
+                final nuovoDettaglio = DettaglioPrelievo(
+                  idDettaglio: const Uuid().v4(),
+                  prelievoId: widget.prelievoId,
+                  materialeId: mat.idMateriale,
+                  quantitaPrelevata: qta,
+                  spuntaRientro: _giaRientrato,
+                  qtaTornata: _giaRientrato ? qta : 0,
+                  noteRientro: _noteController.text.trim().isEmpty
+                      ? null
+                      : _noteController.text.trim(),
+                  isSynced: false,
+                  nomeMateriale: mat.nomeOggetto,
+                  categoriaMateriale: mat.categoria,
+                );
+
+                Navigator.of(context).pop(nuovoDettaglio);
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -18,6 +18,16 @@ abstract class IPrelievoRepository {
     int? qtaTornata,
     String? noteRientro,
   });
+  Future<void> aggiornaQuantitaPrelevata({
+    required String idDettaglio,
+    required int nuovaQuantitaPrelevata,
+    required String prelievoId,
+  });
+  Future<void> aggiungiDettaglioPrelievo(DettaglioPrelievo dettaglio);
+  Future<void> eliminaDettaglioPrelievo({
+    required String idDettaglio,
+    required String prelievoId,
+  });
   Future<void> salvaBozzaSpunta({
     required String prelievoId,
     required List<DettaglioPrelievo> dettagli,

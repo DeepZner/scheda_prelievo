@@ -194,6 +194,79 @@ class SqlitePrelievoRepository implements IPrelievoRepository {
   }
 
   @override
+  Future<void> aggiornaQuantitaPrelevata({
+    required String idDettaglio,
+    required int nuovaQuantitaPrelevata,
+    required String prelievoId,
+  }) async {
+    final db = await _dbHelper.database;
+    await db.transaction((txn) async {
+      await txn.update(
+        DatabaseHelper.tableDettagliPrelievo,
+        {
+          'quantita_prelevata': nuovaQuantitaPrelevata,
+          'is_synced': 0,
+        },
+        where: 'id_dettaglio = ?',
+        whereArgs: [idDettaglio],
+      );
+      await txn.update(
+        DatabaseHelper.tablePrelievi,
+        {'is_synced': 0},
+        where: 'id = ?',
+        whereArgs: [prelievoId],
+      );
+    });
+  }
+
+  @override
+  Future<void> aggiungiDettaglioPrelievo(DettaglioPrelievo dettaglio) async {
+    final db = await _dbHelper.database;
+    await db.transaction((txn) async {
+      await txn.insert(
+        DatabaseHelper.tableDettagliPrelievo,
+        {
+          'id_dettaglio': dettaglio.idDettaglio,
+          'prelievo_id': dettaglio.prelievoId,
+          'materiale_id': dettaglio.materialeId,
+          'quantita_prelevata': dettaglio.quantitaPrelevata,
+          'spunta_rientro': dettaglio.spuntaRientro ? 1 : 0,
+          'qta_tornata': dettaglio.qtaTornata,
+          'note_rientro': dettaglio.noteRientro,
+          'is_synced': 0,
+        },
+      );
+      await txn.update(
+        DatabaseHelper.tablePrelievi,
+        {'is_synced': 0},
+        where: 'id = ?',
+        whereArgs: [dettaglio.prelievoId],
+      );
+    });
+  }
+
+  @override
+  Future<void> eliminaDettaglioPrelievo({
+    required String idDettaglio,
+    required String prelievoId,
+  }) async {
+    final db = await _dbHelper.database;
+    await db.transaction((txn) async {
+      await txn.delete(
+        DatabaseHelper.tableDettagliPrelievo,
+        where: 'id_dettaglio = ?',
+        whereArgs: [idDettaglio],
+      );
+      await txn.update(
+        DatabaseHelper.tablePrelievi,
+        {'is_synced': 0},
+        where: 'id = ?',
+        whereArgs: [prelievoId],
+      );
+    });
+  }
+
+  @override
   Future<void> salvaBozzaSpunta({
     required String prelievoId,
     required List<DettaglioPrelievo> dettagli,
@@ -204,6 +277,7 @@ class SqlitePrelievoRepository implements IPrelievoRepository {
         await txn.update(
           DatabaseHelper.tableDettagliPrelievo,
           {
+            'quantita_prelevata': det.quantitaPrelevata,
             'spunta_rientro': det.spuntaRientro ? 1 : 0,
             'qta_tornata': det.qtaTornata,
             'note_rientro': det.noteRientro,
@@ -239,6 +313,7 @@ class SqlitePrelievoRepository implements IPrelievoRepository {
         await txn.update(
           DatabaseHelper.tableDettagliPrelievo,
           {
+            'quantita_prelevata': det.quantitaPrelevata,
             'spunta_rientro': det.spuntaRientro ? 1 : 0,
             'qta_tornata': det.qtaTornata,
             'note_rientro': det.noteRientro,

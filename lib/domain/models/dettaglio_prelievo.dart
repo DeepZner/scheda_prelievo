@@ -75,6 +75,20 @@ class DettaglioPrelievo {
     return qtaTornata ?? 0;
   }
 
+  /// Indica se il materiale è stato restituito in quantità superiore a quella originariamente prelevata
+  bool get isEccedenza => spuntaRientro && (qtaTornata ?? 0) > quantitaPrelevata;
+
+  /// Quantità eccedente restituita rispetto al prelevato
+  int get eccedenzaQta => isEccedenza ? (qtaTornata! - quantitaPrelevata) : 0;
+
+  /// Indica se il materiale è completamente rientrato (oppure in eccedenza)
+  bool get isCompletamenteRientrato =>
+      spuntaRientro && (qtaTornata ?? 0) >= quantitaPrelevata;
+
+  /// Indica se il materiale è rientrato solo parzialmente (ammanco)
+  bool get isParziale =>
+      spuntaRientro && (qtaTornata ?? 0) < quantitaPrelevata;
+
   DettaglioPrelievo copyWith({
     String? idDettaglio,
     String? prelievoId,
