@@ -6,15 +6,23 @@ class Catalogo {
   final String idMateriale;
   final String categoria;
   final String nomeOggetto;
+  final String? unitaMisuraCustom;
 
   const Catalogo({
     required this.idMateriale,
     required this.categoria,
     required this.nomeOggetto,
+    this.unitaMisuraCustom,
   });
 
   /// Indica se il materiale è una corda o materiale lineare misurato in metri (m)
   bool get isMetri {
+    if (unitaMisuraCustom != null && unitaMisuraCustom!.trim().isNotEmpty) {
+      final u = unitaMisuraCustom!.trim().toLowerCase();
+      if (u == 'm' || u == 'metri' || u == 'metro') return true;
+      if (u == 'pz' || u == 'pezzi' || u == 'pezzo') return false;
+    }
+
     final catLower = categoria.toLowerCase().trim();
     final nomeLower = nomeOggetto.toLowerCase().trim();
     final idLower = idMateriale.toLowerCase().trim();
@@ -51,11 +59,13 @@ class Catalogo {
     String? idMateriale,
     String? categoria,
     String? nomeOggetto,
+    String? unitaMisuraCustom,
   }) {
     return Catalogo(
       idMateriale: idMateriale ?? this.idMateriale,
       categoria: categoria ?? this.categoria,
       nomeOggetto: nomeOggetto ?? this.nomeOggetto,
+      unitaMisuraCustom: unitaMisuraCustom ?? this.unitaMisuraCustom,
     );
   }
 
@@ -64,6 +74,7 @@ class Catalogo {
       'id_materiale': idMateriale,
       'categoria': categoria,
       'nome_oggetto': nomeOggetto,
+      'unita_misura': unitaMisuraCustom ?? (isMetri ? 'm' : 'pz'),
     };
   }
 
@@ -72,6 +83,7 @@ class Catalogo {
       idMateriale: map['id_materiale'] as String,
       categoria: map['categoria'] as String,
       nomeOggetto: map['nome_oggetto'] as String,
+      unitaMisuraCustom: (map['unita_misura'] ?? map['unita']) as String?,
     );
   }
 

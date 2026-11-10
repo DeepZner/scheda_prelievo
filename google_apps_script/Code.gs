@@ -95,16 +95,24 @@ function doGet(e) {
         return jsonResponse({ status: "success", catalogo: [] });
       }
 
+      const header = data[0].map(function(h) { return h.toString().toLowerCase().trim(); });
+      const colId = findColIndex(header, ["codice", "id", "id_materiale", "id materiale"], 0);
+      const colCat = findColIndex(header, ["categoria", "settore"], 1);
+      const colNome = findColIndex(header, ["nome", "nome oggetto", "nome_oggetto", "descrizione", "articolo"], 2);
+      const colUnita = findColIndex(header, ["unita", "unita_misura", "unita di misura", "u.m.", "um"], 3);
+
       const catalogo = [];
       for (let i = 1; i < data.length; i++) {
         const row = data[i];
-        if (row[0] && row[0].toString().trim() !== "") {
-          catalogo.push({
-            id_materiale: row[0].toString().trim(),
-            categoria: (row[1] || "").toString().trim(),
-            nome_oggetto: (row[2] || "").toString().trim()
-          });
-        }
+        const id = (colId >= 0 && row[colId]) ? row[colId].toString().trim() : (row[0] ? row[0].toString().trim() : "");
+        if (!id) continue;
+
+        catalogo.push({
+          id_materiale: id,
+          categoria: (colCat >= 0 && row[colCat]) ? row[colCat].toString().trim() : (row[1] || "").toString().trim(),
+          nome_oggetto: (colNome >= 0 && row[colNome]) ? row[colNome].toString().trim() : (row[2] || "").toString().trim(),
+          unita_misura: (colUnita >= 0 && row[colUnita]) ? row[colUnita].toString().trim().toLowerCase() : ""
+        });
       }
       return jsonResponse({ status: "success", catalogo: catalogo });
     }
@@ -905,8 +913,8 @@ function setupSheetsIfNeeded(ss) {
   let sheetC = ss.getSheetByName(SHEET_CATALOGO);
   if (!sheetC) {
     sheetC = ss.insertSheet(SHEET_CATALOGO);
-    sheetC.getRange(1, 1, 1, 3).setValues([["ID Materiale", "Categoria", "Nome Oggetto"]]);
-    styleHeader(sheetC, 3);
+    sheetC.getRange(1, 1, 1, 4).setValues([["ID Materiale", "Categoria", "Nome Oggetto", "Unita"]]);
+    styleHeader(sheetC, 4);
     popolaCatalogoUfficiale(sheetC);
   }
 
@@ -958,7 +966,10 @@ function correggiEFormattaTuttiIFogli() {
   if (!sheetC) {
     sheetC = ss.insertSheet(SHEET_CATALOGO);
   }
-  const headersC = [["ID Materiale", "Categoria", "Nome Oggetto"]];
+  const headersC = [["ID Materiale", "Categoria", "Nome Oggetto", "Unita"]];
+  if (sheetC.getMaxColumns() < 4) {
+    sheetC.insertColumnsAfter(sheetC.getMaxColumns(), 4 - sheetC.getMaxColumns());
+  }
   styleHeader(sheetC, headersC[0].length);
   const dataC = sheetC.getDataRange().getValues();
   if (dataC.length === 0 || (dataC.length === 1 && !dataC[0][0])) {
@@ -1197,56 +1208,56 @@ function correggiEFormattaTuttiIFogli() {
  */
 function popolaCatalogoUfficiale(sheetC) {
   const catalogRows = [
-    ["C_001", "Corde", "Corde"],
-    ["C_002", "Corde", "Cordini"],
-    ["C_003", "Corde", "Sacchi"],
-    ["C_004", "Corde", "Guaine"],
-    ["A_001", "Armo", "Mosch. ghiera"],
-    ["A_002", "Armo", "Moschettoni"],
-    ["A_003", "Armo", "Maglie"],
-    ["A_004", "Armo", "Anelli"],
-    ["A_005", "Armo", "Piastrine"],
-    ["A_006", "Armo", "Sacca d'armo"],
-    ["A_007", "Armo", "Mazzette"],
-    ["A_008", "Armo", "Scalpelli"],
-    ["A_009", "Armo", "Palanchini"],
-    ["T_001", "Trapano", "Heinell"],
-    ["T_002", "Trapano", "Hilti"],
-    ["T_003", "Trapano", "Milwakee"],
-    ["T_004", "Trapano", "Bosh 12"],
-    ["T_005", "Trapano", "Bosh 24"],
-    ["T_006", "Trapano", "Batterie"],
-    ["T_007", "Trapano", "Caricabatterie"],
-    ["D_001", "Disostr.", "Punte 6mm"],
-    ["D_002", "Disostr.", "Punte 8mm"],
-    ["D_003", "Disostr.", "Punte 12mm"],
-    ["E_001", "Attrezzature", "Attrezzature complete"],
-    ["E_002", "Attrezzature", "Caschi"],
-    ["E_003", "Attrezzature", "Imbraghi"],
-    ["E_004", "Attrezzature", "Delta"],
-    ["E_005", "Attrezzature", "Croll"],
-    ["E_006", "Attrezzature", "Maniglie"],
-    ["E_007", "Attrezzature", "Discensori"],
-    ["E_008", "Attrezzature", "Pedali"],
-    ["E_009", "Attrezzature", "Longes"],
-    ["E_010", "Attrezzature", "Moschettoni (3)"],
-    ["E_011", "Attrezzature", "Mosch. ghiera (1)"],
-    ["E_012", "Attrezzature", "Maglie (1)"],
-    ["R_001", "Rilievo", "Bussole"],
-    ["R_002", "Rilievo", "Clisimetro"],
-    ["R_003", "Rilievo", "Fettucce"],
-    ["R_004", "Rilievo", "DistoX"],
-    ["R_005", "Rilievo", "Taccuini"]
+    ["C_001", "Corde", "Corde", "m"],
+    ["C_002", "Corde", "Cordini", "pz"],
+    ["C_003", "Corde", "Sacchi", "pz"],
+    ["C_004", "Corde", "Guaine", "pz"],
+    ["A_001", "Armo", "Mosch. ghiera", "pz"],
+    ["A_002", "Armo", "Moschettoni", "pz"],
+    ["A_003", "Armo", "Maglie", "pz"],
+    ["A_004", "Armo", "Anelli", "pz"],
+    ["A_005", "Armo", "Piastrine", "pz"],
+    ["A_006", "Armo", "Sacca d'armo", "pz"],
+    ["A_007", "Armo", "Mazzette", "pz"],
+    ["A_008", "Armo", "Scalpelli", "pz"],
+    ["A_009", "Armo", "Palanchini", "pz"],
+    ["T_001", "Trapano", "Heinell", "pz"],
+    ["T_002", "Trapano", "Hilti", "pz"],
+    ["T_003", "Trapano", "Milwakee", "pz"],
+    ["T_004", "Trapano", "Bosh 12", "pz"],
+    ["T_005", "Trapano", "Bosh 24", "pz"],
+    ["T_006", "Trapano", "Batterie", "pz"],
+    ["T_007", "Trapano", "Caricabatterie", "pz"],
+    ["D_001", "Disostr.", "Punte 6mm", "pz"],
+    ["D_002", "Disostr.", "Punte 8mm", "pz"],
+    ["D_003", "Disostr.", "Punte 12mm", "pz"],
+    ["E_001", "Attrezzature", "Attrezzature complete", "pz"],
+    ["E_002", "Attrezzature", "Caschi", "pz"],
+    ["E_003", "Attrezzature", "Imbraghi", "pz"],
+    ["E_004", "Attrezzature", "Delta", "pz"],
+    ["E_005", "Attrezzature", "Croll", "pz"],
+    ["E_006", "Attrezzature", "Maniglie", "pz"],
+    ["E_007", "Attrezzature", "Discensori", "pz"],
+    ["E_008", "Attrezzature", "Pedali", "pz"],
+    ["E_009", "Attrezzature", "Longes", "pz"],
+    ["E_010", "Attrezzature", "Moschettoni (3)", "pz"],
+    ["E_011", "Attrezzature", "Mosch. ghiera (1)", "pz"],
+    ["E_012", "Attrezzature", "Maglie (1)", "pz"],
+    ["R_001", "Rilievo", "Bussole", "pz"],
+    ["R_002", "Rilievo", "Clisimetro", "pz"],
+    ["R_003", "Rilievo", "Fettucce", "m"],
+    ["R_004", "Rilievo", "DistoX", "pz"],
+    ["R_005", "Rilievo", "Taccuini", "pz"]
   ];
-  if (sheetC.getMaxColumns() < 3) {
-    sheetC.insertColumnsAfter(sheetC.getMaxColumns(), 3 - sheetC.getMaxColumns());
+  if (sheetC.getMaxColumns() < 4) {
+    sheetC.insertColumnsAfter(sheetC.getMaxColumns(), 4 - sheetC.getMaxColumns());
   }
   if (sheetC.getMaxRows() < catalogRows.length + 1) {
     sheetC.insertRowsAfter(sheetC.getMaxRows(), (catalogRows.length + 1) - sheetC.getMaxRows());
   }
-  sheetC.getRange(2, 1, catalogRows.length, 3).setValues(catalogRows);
+  sheetC.getRange(2, 1, catalogRows.length, 4).setValues(catalogRows);
   try {
-    sheetC.autoResizeColumns(1, 3);
+    sheetC.autoResizeColumns(1, 4);
   } catch (e) {}
 }
 

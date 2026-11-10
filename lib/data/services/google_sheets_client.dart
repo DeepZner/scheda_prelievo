@@ -364,10 +364,12 @@ class GoogleSheetsClient {
         if (list != null) {
           return list.map((item) {
             final map = item as Map<String, dynamic>;
+            final rawUnita = (map['unita_misura'] ?? map['unita'])?.toString().trim();
             return Catalogo(
               idMateriale: map['id_materiale']?.toString() ?? '',
               categoria: map['categoria']?.toString() ?? '',
               nomeOggetto: map['nome_oggetto']?.toString() ?? '',
+              unitaMisuraCustom: (rawUnita != null && rawUnita.isNotEmpty) ? rawUnita : null,
             );
           }).where((c) => c.idMateriale.isNotEmpty).toList();
         }

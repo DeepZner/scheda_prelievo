@@ -116,6 +116,13 @@ class DatabaseHelper {
         await db.execute('ALTER TABLE $tablePrelievi ADD COLUMN allegato_drive_url TEXT');
       }
 
+      // Migrazione sicura per colonna unita_misura nel catalogo
+      final catColumnsInfo = await db.rawQuery("PRAGMA table_info($tableCatalogo)");
+      final catColNames = catColumnsInfo.map((c) => c['name'] as String).toSet();
+      if (!catColNames.contains('unita_misura')) {
+        await db.execute('ALTER TABLE $tableCatalogo ADD COLUMN unita_misura TEXT');
+      }
+
       // Controlla se il catalogo contiene già il catalogo reale ufficiale (C_001)
       final res = await db.rawQuery(
         "SELECT id_materiale FROM $tableCatalogo WHERE id_materiale = 'C_001' LIMIT 1",
@@ -160,7 +167,8 @@ class DatabaseHelper {
       CREATE TABLE IF NOT EXISTS $tableCatalogo (
         id_materiale TEXT PRIMARY KEY,
         categoria TEXT NOT NULL,
-        nome_oggetto TEXT NOT NULL
+        nome_oggetto TEXT NOT NULL,
+        unita_misura TEXT
       )
     ''');
 

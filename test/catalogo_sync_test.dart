@@ -36,7 +36,8 @@ void main() {
             CREATE TABLE ${DatabaseHelper.tableCatalogo} (
               id_materiale TEXT PRIMARY KEY,
               categoria TEXT NOT NULL,
-              nome_oggetto TEXT NOT NULL
+              nome_oggetto TEXT NOT NULL,
+              unita_misura TEXT
             )
           ''');
         },
@@ -89,16 +90,19 @@ void main() {
                 'id_materiale': 'SUB_001',
                 'categoria': 'Subacquea',
                 'nome_oggetto': 'GAV Speleo',
+                'unita_misura': 'pz',
               },
               {
-                'id_materiale': 'BIO_001',
-                'categoria': 'Biospeleologia',
-                'nome_oggetto': 'Provetta Aspiratore',
+                'id_materiale': 'CAVO_001',
+                'categoria': 'Comunicazioni',
+                'nome_oggetto': 'Cavo Telefonico Bifilare',
+                'unita_misura': 'm',
               },
               {
                 'id_materiale': 'C_001',
                 'categoria': 'Corde',
                 'nome_oggetto': 'Corda Semistatica 10mm EN 1891',
+                'unita_misura': 'm',
               },
             ],
           }),
@@ -128,12 +132,20 @@ void main() {
       expect(dopo.length, 3);
 
       final categorie = await repository.getCategorie();
-      expect(categorie, containsAll(['Subacquea', 'Biospeleologia', 'Corde']));
+      expect(categorie, containsAll(['Subacquea', 'Comunicazioni', 'Corde']));
 
       final subMateriale = await repository.getMaterialeById('SUB_001');
       expect(subMateriale, isNotNull);
       expect(subMateriale!.nomeOggetto, 'GAV Speleo');
-      expect(subMateriale.categoria, 'Subacquea');
+      expect(subMateriale.isMetri, isFalse);
+      expect(subMateriale.unitaMisura, 'pz');
+
+      // CAVO_001 ha categoria 'Comunicazioni' ma unità esplicita 'm' -> deve essere misurato in metri!
+      final cavo = await repository.getMaterialeById('CAVO_001');
+      expect(cavo, isNotNull);
+      expect(cavo!.nomeOggetto, 'Cavo Telefonico Bifilare');
+      expect(cavo.isMetri, isTrue);
+      expect(cavo.unitaMisura, 'm');
     });
 
     test('isMetri riconosce correttamente corde anche per nuove categorie tessili', () {
