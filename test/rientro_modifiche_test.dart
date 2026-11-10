@@ -226,5 +226,32 @@ void main() {
       expect(eccedenze.length, 1);
       expect(eccedenze.first, contains('+2'));
     });
+
+    test('Aggiunta in sequenza di più matasse di corda della stessa categoria', () {
+      // Simula aggiunta in sequenza di spezzoni da 60m, 40m, 30m per lo stesso tipo di corda
+      final dettagliCorde = <DettaglioPrelievo>[];
+      final matasseScelte = [60, 40, 30];
+
+      for (final metri in matasseScelte) {
+        dettagliCorde.add(
+          DettaglioPrelievo(
+            idDettaglio: 'dett_${dettagliCorde.length + 1}',
+            prelievoId: 'p-corde',
+            materialeId: 'CORDA_10',
+            nomeMateriale: 'Corda Semistatica 10mm',
+            categoriaMateriale: 'Corde',
+            quantitaPrelevata: metri,
+            spuntaRientro: false,
+          ),
+        );
+      }
+
+      expect(dettagliCorde.length, 3);
+      // Ogni matassa è un pezzo distinto
+      expect(dettagliCorde.fold<int>(0, (s, d) => s + d.numeroPezzi), 3);
+      // Totale metri = 130m
+      expect(dettagliCorde.fold<int>(0, (s, d) => s + d.quantitaPrelevata), 130);
+      expect(dettagliCorde.every((d) => d.categoriaMateriale == 'Corde'), isTrue);
+    });
   });
 }

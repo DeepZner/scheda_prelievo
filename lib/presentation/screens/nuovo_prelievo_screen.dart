@@ -35,6 +35,7 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
 
   final _uuid = const Uuid();
   bool _caricamentoInizialeCompletato = false;
+  String _ultimaCategoriaSelezionata = 'Tutti';
 
   bool get isEditing => widget.editPrelievoId != null;
 
@@ -152,7 +153,7 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
     }
   }
 
-  Future<int?> _mostraDialogSceltaMetri(
+  Future<_SceltaMetriResult?> _mostraDialogSceltaMetri(
     BuildContext context,
     Catalogo materiale,
     int initialValue,
@@ -160,7 +161,7 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
     final controller = TextEditingController(text: '$initialValue');
     final presets = [15, 20, 25, 30, 40, 50, 60, 70, 80, 100, 120];
 
-    return showDialog<int>(
+    return showDialog<_SceltaMetriResult>(
       context: context,
       builder: (ctx) {
         return StatefulBuilder(
@@ -220,10 +221,16 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
                           borderRadius: BorderRadius.circular(14),
                         ),
                       ),
+                      onChanged: (_) {
+                        setDialogState(() {});
+                      },
                       onSubmitted: (val) {
                         final parsed = int.tryParse(val.trim());
                         if (parsed != null && parsed > 0) {
-                          Navigator.pop(ctx, parsed);
+                          Navigator.pop(
+                            ctx,
+                            _SceltaMetriResult(metri: parsed, continua: false),
+                          );
                         }
                       },
                     ),
@@ -258,7 +265,9 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
                             ),
                           ),
                           onPressed: () {
-                            Navigator.pop(ctx, preset);
+                            setDialogState(() {
+                              controller.text = '$preset';
+                            });
                           },
                         );
                       }).toList(),
@@ -271,6 +280,21 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
                   onPressed: () => Navigator.pop(ctx, null),
                   child: const Text('Annulla'),
                 ),
+                FilledButton.tonal(
+                  style: FilledButton.styleFrom(
+                    foregroundColor: Colors.deepOrange.shade900,
+                  ),
+                  onPressed: () {
+                    final parsed = int.tryParse(controller.text.trim());
+                    if (parsed != null && parsed > 0) {
+                      Navigator.pop(
+                        ctx,
+                        _SceltaMetriResult(metri: parsed, continua: true),
+                      );
+                    }
+                  },
+                  child: const Text('+ Altra matassa'),
+                ),
                 FilledButton(
                   style: FilledButton.styleFrom(
                     backgroundColor: Colors.deepOrange,
@@ -278,7 +302,10 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
                   onPressed: () {
                     final parsed = int.tryParse(controller.text.trim());
                     if (parsed != null && parsed > 0) {
-                      Navigator.pop(ctx, parsed);
+                      Navigator.pop(
+                        ctx,
+                        _SceltaMetriResult(metri: parsed, continua: false),
+                      );
                     }
                   },
                   child: const Text('Aggiungi'),
@@ -293,29 +320,30 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
 
   Future<void> _selezionaMaterialeConQuantita(
     Catalogo materiale,
-    BuildContext bottomSheetContext,
+    void Function(void Function()) setModalState,
   ) async {
+    _ultimaCategoriaSelezionata = materiale.categoria;
     if (materiale.isMetri) {
-      final qtaScelta =
-          await _mostraDialogSceltaMetri(context, materiale, 50);
-      if (qtaScelta != null && qtaScelta > 0) {
+      bool continua = true;
+      while (continua) {
+        final result = await _mostraDialogSceltaMetri(context, materiale, 50);
+        if (result == null || result.metri <= 0) {
+          break;
+        }
         setState(() {
           final newId = _uuid.v4();
           _materialiScelti[newId] = _MaterialeSelezionato(
             rigaId: newId,
             materiale: materiale,
-            quantita: qtaScelta,
+            quantita: result.metri,
           );
         });
-        if (bottomSheetContext.mounted) {
-          Navigator.pop(bottomSheetContext);
-        }
+        setModalState(() {});
+        continua = result.continua;
       }
     } else {
       _aggiungiOIncrementaMateriale(materiale);
-      if (bottomSheetContext.mounted) {
-        Navigator.pop(bottomSheetContext);
-      }
+      setModalState(() {});
     }
   }
 
@@ -332,7 +360,7 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (bottomSheetContext) {
-        String selectedCategory = 'Tutti';
+        String selectedCategory = _ultimaCategoriaSelezionata;
         String searchQuery = '';
 
         return StatefulBuilder(
@@ -366,9 +394,19 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
                                 ),
                           ),
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.close),
+                        FilledButton.tonalIcon(
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size(48, 48),
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                          ),
                           onPressed: () => Navigator.of(bottomSheetContext).pop(),
+                          icon: const Icon(Icons.check, size: 20),
+                          label: Text(
+                            _materialiScelti.isEmpty
+                                ? 'Chiudi'
+                                : 'Fatto (${_materialiScelti.length})',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
                         ),
                       ],
                     ),
@@ -419,6 +457,7 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
                             onSelected: (_) {
                               setModalState(() {
                                 selectedCategory = cat;
+                                _ultimaCategoriaSelezionata = cat;
                               });
                             },
                           ),
@@ -485,7 +524,7 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
                                   child: InkWell(
                                     borderRadius: BorderRadius.circular(14),
                                     onTap: () {
-                                      _selezionaMaterialeConQuantita(mat, bottomSheetContext);
+                                      _selezionaMaterialeConQuantita(mat, setModalState);
                                     },
                                     child: Padding(
                                       padding: const EdgeInsets.symmetric(
@@ -569,7 +608,7 @@ class _NuovoPrelievoScreenState extends ConsumerState<NuovoPrelievoScreen> {
                                               ),
                                               onPressed: () {
                                                 if (mat.isMetri) {
-                                                  _selezionaMaterialeConQuantita(mat, bottomSheetContext);
+                                                  _selezionaMaterialeConQuantita(mat, setModalState);
                                                 } else {
                                                   _aggiungiOIncrementaMateriale(mat);
                                                   setModalState(() {});
@@ -1226,4 +1265,14 @@ class _MaterialeSelezionato {
 
   /// Ogni inserimento di corda in metri equivale ad 1 singolo pezzo (matassa di corda)
   int get numeroPezzi => materiale.isMetri ? 1 : quantita;
+}
+
+class _SceltaMetriResult {
+  final int metri;
+  final bool continua;
+
+  const _SceltaMetriResult({
+    required this.metri,
+    this.continua = false,
+  });
 }

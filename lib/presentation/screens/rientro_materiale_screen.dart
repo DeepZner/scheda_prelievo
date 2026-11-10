@@ -329,6 +329,7 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
   final Map<String, Timer?> _debounceTimers = {};
   bool _isSaving = false;
   bool _isConcluso = false;
+  String _ultimaCategoriaAggiunta = 'Tutti';
 
   bool get isConcluso => _isConcluso;
 
@@ -570,7 +571,7 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
   }
 
   Future<void> _mostraModalAggiuntaMateriale() async {
-    final nuovoDettaglio = await showModalBottomSheet<DettaglioPrelievo>(
+    await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -579,39 +580,42 @@ class _DettagliListViewState extends ConsumerState<_DettagliListView> {
       ),
       builder: (ctx) => _ModalAggiungiMaterialePrelievo(
         prelievoId: widget.prelievo.id,
+        initialCategory: _ultimaCategoriaAggiunta,
+        onCategoryChanged: (cat) {
+          _ultimaCategoriaAggiunta = cat;
+        },
+        onDettaglioAggiunto: (nuovoDettaglio) async {
+          setState(() {
+            _spunte[nuovoDettaglio.idDettaglio] = nuovoDettaglio.spuntaRientro;
+            _qtaTornate[nuovoDettaglio.idDettaglio] =
+                nuovoDettaglio.qtaTornata ?? nuovoDettaglio.quantitaPrelevata;
+            _noteTexts[nuovoDettaglio.idDettaglio] =
+                nuovoDettaglio.noteRientro ?? '';
+          });
+
+          await ref
+              .read(prelieviControllerProvider.notifier)
+              .aggiungiDettaglioPrelievo(nuovoDettaglio);
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                backgroundColor: Colors.green.shade800,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                content: Text(
+                  'Aggiunto "${nuovoDettaglio.nomeMateriale}" (${nuovoDettaglio.quantitaPrelevata} ${nuovoDettaglio.unitaMisura}) al prelievo!',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
+        },
       ),
     );
-
-    if (nuovoDettaglio != null && mounted) {
-      setState(() {
-        _spunte[nuovoDettaglio.idDettaglio] = nuovoDettaglio.spuntaRientro;
-        _qtaTornate[nuovoDettaglio.idDettaglio] =
-            nuovoDettaglio.qtaTornata ?? nuovoDettaglio.quantitaPrelevata;
-        _noteTexts[nuovoDettaglio.idDettaglio] =
-            nuovoDettaglio.noteRientro ?? '';
-      });
-
-      await ref
-          .read(prelieviControllerProvider.notifier)
-          .aggiungiDettaglioPrelievo(nuovoDettaglio);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: Colors.green.shade800,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-            content: Text(
-              'Aggiunto "${nuovoDettaglio.nomeMateriale}" al prelievo!',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    }
   }
 
   Future<void> _spuntaTutto() async {
@@ -1457,52 +1461,36 @@ class _DettaglioRientroCardState extends State<_DettaglioRientroCard> {
                         ),
                       ),
                       const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          Text(
-                            'Prelevati originariamente: ${d.quantitaPrelevata} ${d.unitaMisura}',
-                            style: TextStyle(
-                              color: d.isMetri
-                                  ? Colors.deepOrange
-                                  : theme.colorScheme.primary,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          InkWell(
-                            borderRadius: BorderRadius.circular(16),
-                            onTap: () => _mostraDialogModificaQuantita(context),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 4),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.edit_outlined,
-                                    size: 15,
-                                    color: d.isMetri
-                                        ? Colors.deepOrange
-                                        : theme.colorScheme.primary,
-                                  ),
-                                  const SizedBox(width: 3),
-                                  Text(
-                                    'Modifica',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: d.isMetri
-                                          ? Colors.deepOrange
-                                          : theme.colorScheme.primary,
-                                      decoration: TextDecoration.underline,
-                                    ),
-                                  ),
-                                ],
+                      InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () => _mostraDialogModificaQuantita(context),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 2, vertical: 3),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Prelevati: ${d.quantitaPrelevata} ${d.unitaMisura}',
+                                style: TextStyle(
+                                  color: d.isMetri
+                                      ? Colors.deepOrange
+                                      : theme.colorScheme.primary,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                            ),
+                              const SizedBox(width: 4),
+                              Icon(
+                                Icons.edit_outlined,
+                                size: 14,
+                                color: d.isMetri
+                                    ? Colors.deepOrange
+                                    : theme.colorScheme.primary,
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     ],
                   ),
@@ -1919,9 +1907,15 @@ class _ConfermaRientroModalSheetState
 
 class _ModalAggiungiMaterialePrelievo extends ConsumerStatefulWidget {
   final String prelievoId;
+  final String initialCategory;
+  final ValueChanged<String>? onCategoryChanged;
+  final Future<void> Function(DettaglioPrelievo dettaglio)? onDettaglioAggiunto;
 
   const _ModalAggiungiMaterialePrelievo({
     required this.prelievoId,
+    this.initialCategory = 'Tutti',
+    this.onCategoryChanged,
+    this.onDettaglioAggiunto,
   });
 
   @override
@@ -1931,7 +1925,7 @@ class _ModalAggiungiMaterialePrelievo extends ConsumerStatefulWidget {
 
 class _ModalAggiungiMaterialePrelievoState
     extends ConsumerState<_ModalAggiungiMaterialePrelievo> {
-  String _selectedCategory = 'Tutti';
+  late String _selectedCategory;
   String _searchQuery = '';
   Catalogo? _selectedMateriale;
 
@@ -1939,6 +1933,12 @@ class _ModalAggiungiMaterialePrelievoState
   bool _giaRientrato = true;
   final TextEditingController _noteController = TextEditingController();
   final TextEditingController _qtaController = TextEditingController(text: '1');
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedCategory = widget.initialCategory;
+  }
 
   @override
   void dispose() {
@@ -2068,6 +2068,7 @@ class _ModalAggiungiMaterialePrelievoState
                     setState(() {
                       _selectedCategory = cat;
                     });
+                    widget.onCategoryChanged?.call(cat);
                   },
                 ),
               );
@@ -2306,44 +2307,110 @@ class _ModalAggiungiMaterialePrelievoState
             ),
           ),
           const SizedBox(height: 28),
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: FilledButton.icon(
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(52),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 52,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
+                    label: Text(
+                      mat.isMetri ? 'ALTRO SPEZZONE' : 'ALTRO ARTICOLO',
+                      style: const TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                    onPressed: () async {
+                      final qta = int.tryParse(_qtaController.text.trim()) ??
+                          _quantitaPrelevata;
+                      if (qta <= 0) return;
+
+                      final nuovoDettaglio = DettaglioPrelievo(
+                        idDettaglio: const Uuid().v4(),
+                        prelievoId: widget.prelievoId,
+                        materialeId: mat.idMateriale,
+                        quantitaPrelevata: qta,
+                        spuntaRientro: _giaRientrato,
+                        qtaTornata: _giaRientrato ? qta : 0,
+                        noteRientro: _noteController.text.trim().isEmpty
+                            ? null
+                            : _noteController.text.trim(),
+                        isSynced: false,
+                        nomeMateriale: mat.nomeOggetto,
+                        categoriaMateriale: mat.categoria,
+                      );
+
+                      if (widget.onDettaglioAggiunto != null) {
+                        await widget.onDettaglioAggiunto!(nuovoDettaglio);
+                      }
+
+                      setState(() {
+                        if (mat.isMetri) {
+                          _quantitaPrelevata = 50;
+                          _qtaController.text = '50';
+                          _noteController.clear();
+                        } else {
+                          _selectedMateriale = null;
+                        }
+                      });
+                    },
+                  ),
                 ),
               ),
-              icon: const Icon(Icons.check_circle_outline_rounded),
-              label: const Text(
-                'AGGIUNGI AL PRELIEVO',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              const SizedBox(width: 12),
+              Expanded(
+                child: SizedBox(
+                  height: 52,
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    icon: const Icon(Icons.check_circle_outline_rounded, size: 20),
+                    label: const Text(
+                      'AGGIUNGI E CHIUDI',
+                      style: TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                    onPressed: () async {
+                      final qta = int.tryParse(_qtaController.text.trim()) ??
+                          _quantitaPrelevata;
+                      if (qta <= 0) return;
+
+                      final nuovoDettaglio = DettaglioPrelievo(
+                        idDettaglio: const Uuid().v4(),
+                        prelievoId: widget.prelievoId,
+                        materialeId: mat.idMateriale,
+                        quantitaPrelevata: qta,
+                        spuntaRientro: _giaRientrato,
+                        qtaTornata: _giaRientrato ? qta : 0,
+                        noteRientro: _noteController.text.trim().isEmpty
+                            ? null
+                            : _noteController.text.trim(),
+                        isSynced: false,
+                        nomeMateriale: mat.nomeOggetto,
+                        categoriaMateriale: mat.categoria,
+                      );
+
+                      if (widget.onDettaglioAggiunto != null) {
+                        await widget.onDettaglioAggiunto!(nuovoDettaglio);
+                      }
+
+                      if (mounted) {
+                        Navigator.of(context).pop();
+                      }
+                    },
+                  ),
+                ),
               ),
-              onPressed: () {
-                final qta =
-                    int.tryParse(_qtaController.text.trim()) ?? _quantitaPrelevata;
-                if (qta <= 0) return;
-
-                final nuovoDettaglio = DettaglioPrelievo(
-                  idDettaglio: const Uuid().v4(),
-                  prelievoId: widget.prelievoId,
-                  materialeId: mat.idMateriale,
-                  quantitaPrelevata: qta,
-                  spuntaRientro: _giaRientrato,
-                  qtaTornata: _giaRientrato ? qta : 0,
-                  noteRientro: _noteController.text.trim().isEmpty
-                      ? null
-                      : _noteController.text.trim(),
-                  isSynced: false,
-                  nomeMateriale: mat.nomeOggetto,
-                  categoriaMateriale: mat.categoria,
-                );
-
-                Navigator.of(context).pop(nuovoDettaglio);
-              },
-            ),
+            ],
           ),
         ],
       ),
