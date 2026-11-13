@@ -6,7 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 class CreditsScreen extends StatelessWidget {
   const CreditsScreen({super.key});
 
-  static const String appVersion = '0.1.3';
+  static const String appVersion = '0.1.4';
   static const String developerEmail = 'massimiliano.re@speleoclubroma.org';
   static const String scrWebsiteUrl = 'https://www.speleoclubroma.org';
   static const String repoUrl = 'https://github.com/DeepZner/scheda_prelievo';
