@@ -136,7 +136,7 @@ void main() {
       expect(find.text('Pozzo della Cava'), findsOneWidget);
 
       // Verifica presenza del pulsante rapido Comprimi tutti / Espandi tutti
-      final toggleAllButton = find.text('Espandi tutti');
+      find.text('Espandi tutti');
       final compressAllButton = find.text('Comprimi tutti');
       expect(find.byWidgetPredicate((w) => w is Text && (w.data == 'Espandi tutti' || w.data == 'Comprimi tutti')), findsOneWidget);
 
