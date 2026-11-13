@@ -94,14 +94,14 @@ jobs:
 
       - name: Compila APK Universale (funziona su qualsiasi dispositivo Android)
         run: |
-          flutter build apk --release
+          flutter build apk --release --android-skip-build-dependency-validation
           mkdir -p dist/
           cp build/app/outputs/flutter-apk/app-release.apk "dist/MagazzinoSpeleo-v$VERSION.apk"
 
       - name: Compila APK per architettura (Split per ABI opzionale)
         if: github.event.inputs.build_split_apk == 'true'
         run: |
-          flutter build apk --release --split-per-abi
+          flutter build apk --release --split-per-abi --android-skip-build-dependency-validation
           if [ -f build/app/outputs/flutter-apk/app-arm64-v8a-release.apk ]; then
             cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk "dist/MagazzinoSpeleo-v$VERSION-arm64-v8a.apk"
           fi
@@ -115,7 +115,7 @@ jobs:
       - name: Compila Android App Bundle (.aab)
         if: github.event.inputs.build_bundle == 'true'
         run: |
-          flutter build appbundle --release
+          flutter build appbundle --release --android-skip-build-dependency-validation
           cp build/app/outputs/bundle/release/app-release.aab "dist/MagazzinoSpeleo-v$VERSION.aab"
 
       - name: Carica Artifacts su GitHub Actions (solo per build di test/PR senza Release)
