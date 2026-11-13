@@ -123,7 +123,7 @@ jobs:
         with:
           name: MagazzinoSpeleo-Android-Build
           path: dist/*
-          retention-days: 30
+          retention-days: 3
 
       - name: Pubblica GitHub Release (su Tag o richiesta manuale)
         if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.create_release == 'true'
