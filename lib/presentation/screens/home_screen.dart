@@ -14,10 +14,13 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  int _currentIndex = 0;
+  int _selectedTab = 0; // 0: Storico, 1: Spunta Rientro
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Scaffold(
       appBar: AppBar(
         title: InkWell(
@@ -36,7 +39,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text(
-                    _currentIndex == 0 ? 'Storico Prelievi' : 'Spunta Rientro',
+                    _selectedTab == 0 ? 'Storico Prelievi' : 'Spunta Rientro',
                     style: const TextStyle(fontWeight: FontWeight.bold),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -56,34 +59,42 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: _currentIndex == 0
+      body: _selectedTab == 0
           ? const _StoricoTab()
           : const _SpuntaRientroTab(),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: FloatingActionButton.extended(
-        elevation: 4,
-        onPressed: () {
-          context.go('/nuovo-prelievo');
-        },
-        icon: const Icon(Icons.add, size: 28),
-        label: const Text(
-          'NUOVO PRELIEVO',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.5,
-          ),
-        ),
-      ),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (idx) => setState(() => _currentIndex = idx),
-        destinations: const [
-          NavigationDestination(
+        selectedIndex: _selectedTab == 0 ? 0 : 2,
+        onDestinationSelected: (idx) {
+          if (idx == 1) {
+            context.go('/nuovo-prelievo');
+          } else {
+            setState(() {
+              _selectedTab = (idx == 0) ? 0 : 1;
+            });
+          }
+        },
+        destinations: [
+          const NavigationDestination(
             icon: Icon(Icons.history_outlined),
             selectedIcon: Icon(Icons.history),
             label: 'Storico',
           ),
           NavigationDestination(
+            icon: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.add_rounded,
+                size: 24,
+                color: colorScheme.primary,
+              ),
+            ),
+            label: 'Nuovo',
+          ),
+          const NavigationDestination(
             icon: Icon(Icons.assignment_return_outlined),
             selectedIcon: Icon(Icons.assignment_return),
             label: 'Spunta Rientro',
@@ -137,7 +148,7 @@ class _SpuntaRientroTab extends ConsumerWidget {
         }
 
         return ListView.builder(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 88),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           itemCount: prelievi.length + 1,
           itemBuilder: (context, index) {
             if (index == 0) {
@@ -210,6 +221,6 @@ class _StoricoTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const StoricoRaggruppatoView(bottomPadding: 88.0);
+    return const StoricoRaggruppatoView(bottomPadding: 24.0);
   }
 }
